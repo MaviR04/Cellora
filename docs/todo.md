@@ -13,6 +13,27 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ---
 
+## Schedule
+
+**Hard deadline:** Friday 2 Oct 2026. **Target:** everything done by **Tuesday 29 Sep**; Wed–Thu are buffer (other assignments).
+
+| When | Goal | Phases | Done when |
+|---|---|---|---|
+| **Sun 27 (evening)** | Infrastructure up, catalog in the DB | 1, 2 (seed + catalog API) | `docker compose up` gives a healthy replica set + Redis; seeded products queryable through the API |
+| **Mon 28** | The customer side works end to end and produces telemetry | 2 (UI), 3, 4, 5, 6 | Browse → cart → checkout works in the browser; events flow browser → stream → `events`; simulator fills a few days of history |
+| **Tue 29** | Staff side + evidence + report draft | 7, 8, 9, 10 | Analyst, Support and Admin dashboards work; 📸 evidence captured; full report draft exists |
+| Wed 30 – Thu 1 | Buffer only | 10 (polish), 11 | PDF exported; demo rehearsed |
+| **Fri 2** | Submit | 11 | Submitted |
+
+**Scope rules for this timeline**
+- Functional, clean UI over polished UI. No design work beyond a simple consistent layout.
+- ⭐ items are cut unless a day finishes early. They are still mentioned in the report as future work where relevant.
+- If a day slips, cut from Phase 8 (Admin UC6 extras, audit log viewer) before touching the telemetry pipeline, funnels or checkout. Those carry the NoSQL story.
+- Report sections 2–5 mostly repackage the existing docs; draft them in any gap (e.g. while the simulator runs).
+- **Understand as you go.** The viva is 35 marks. Read and ask about each piece as it lands, rather than learning it all on Wednesday.
+
+---
+
 ## Phase 0: Planning ✅
 
 - [x] Select business problem (phone & accessories e-commerce + telemetry platform)
@@ -26,10 +47,11 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ---
 
-## Phase 1: Foundation
+## Phase 1: Foundation · Sun 27
 
 - [ ] npm workspaces monorepo: `apps/web`, `apps/api`, `apps/worker`, `packages/shared`, `scripts/`, `infra/`
-- [ ] TypeScript config (shared base `tsconfig`), ESLint + Prettier
+- [ ] TypeScript config (shared base `tsconfig`)
+- [ ] ⭐ ESLint + Prettier
 - [ ] `infra/docker-compose.yml`: 3-node MongoDB replica set (`rs0`) + init container, Redis with AOF
 - [ ] `.env.example` + config loader (Mongo URI, Redis URL, session secret)
 - [ ] `packages/shared`: Zod schemas for event envelope + event types, product kinds, roles
@@ -37,7 +59,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] Root `README.md`: prerequisites + how to run
 - [ ] 📸 `rs.status()` showing 3 members; `docker compose ps`
 
-## Phase 2: Catalog & storefront
+## Phase 2: Catalog & storefront · Sun 27 (seed + API), Mon 28 (UI)
 
 - [ ] Mongoose `Product` base model + 7 discriminators
 - [ ] Seed script: ~60–100 real products; accessories linked to seeded `modelKey`s
@@ -47,7 +69,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] 📸 Two very different product documents side by side (phone vs screen protector): the flexible-schema evidence
 - [ ] 📸 `explain("executionStats")` for category + search queries (IXSCAN, keys vs docs examined)
 
-## Phase 3: Auth, sessions & cart
+## Phase 3: Auth, sessions & cart · Mon 28
 
 - [ ] `User` model; signup/login with password hashing
 - [ ] Redis sessions (`sess:*`, `user_sessions:*`), session cookie, logout
@@ -57,7 +79,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] Cart UI (add / remove / change quantity; live prices from MongoDB)
 - [ ] 📸 Redis `HGETALL cart:*` + `TTL` output
 
-## Phase 4: Checkout & orders
+## Phase 4: Checkout & orders · Mon 28
 
 - [ ] Checkout flow: address, simulated payment, place order
 - [ ] Multi-document transaction: per-variant stock decrement (`$elemMatch` + positional `$inc`) + order insert, `w: "majority"`
@@ -65,7 +87,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] Order confirmation + "My orders" page
 - [ ] 📸 Concurrency test: parallel checkouts for the last unit of stock; exactly one succeeds (no overselling)
 
-## Phase 5: Telemetry pipeline
+## Phase 5: Telemetry pipeline · Mon 28
 
 - [ ] Frontend tracker: `anonymousId` (localStorage), `sessionId` (30-min inactivity), batching, `sendBeacon` on page hide
 - [ ] Instrument storefront: `page_view`, `category_view`, `product_view`, `search`, cart events, `checkout_started`, `payment_submitted`, `identify`
@@ -78,13 +100,13 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] ⭐ Worker: best-effort `eventId` dedupe via Redis set
 - [ ] 📸 A raw event document; `XINFO GROUPS` / `XPENDING`; events/sec ingest throughput measurement
 
-## Phase 6: Traffic simulator
+## Phase 6: Traffic simulator · Mon 28
 
 - [ ] `scripts/simulate-traffic.ts`: N synthetic sessions with configurable drop-off per funnel step, device mix, guest vs logged-in mix, some out-of-stock failures
 - [ ] Backfill mode: generate historical days (so funnels/trends have data); live mode: steady trickle for "real-time" widgets
 - [ ] 📸 Collection stats after load (`events` document count, storage size, compression ratio from `collStats`)
 
-## Phase 7: Rollups
+## Phase 7: Rollups · Tue 29
 
 - [ ] `session_summaries` rollup (`$merge`, replace)
 - [ ] `metrics_hourly` rollup
@@ -93,7 +115,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] Schedule with `node-cron` in worker (interval from `settings`)
 - [ ] 📸 Query time: funnel from raw `events` vs from `funnel_daily` vs Redis cache hit
 
-## Phase 8: Staff dashboards
+## Phase 8: Staff dashboards · Tue 29
 
 **Analyst (read-only)**
 - [ ] UC1 Live activity: active users now (HyperLogLog), events/min, recent event feed, top pages/products
@@ -111,22 +133,25 @@ End-to-end plan for the assignment: application **and** report, through to the v
 **Admin**
 - [ ] UC4 Manage users & roles; revoke sessions
 - [ ] UC5 Data retention setting → `collMod expireAfterSeconds`
-- [ ] UC6 Index list + `$indexStats` usage + explain viewer; trigger rollup rebuild
+- [ ] UC6 Index list + `$indexStats` usage; trigger rollup rebuild
+- [ ] ⭐ UC6 In-app explain viewer (use `mongosh` output as report evidence instead)
 - [ ] UC7 Health: replica set members/lag, `serverStatus` metrics, Redis `INFO`, stream backlog
 - [ ] UC15 Erase customer data (GDPR) + `audit_log`
-- [ ] Audit log viewer
+- [ ] ⭐ Audit log viewer (entries are still written)
 - [ ] 📸 Every dashboard page (report + viva backup)
 
-## Phase 9: Testing & evidence
+## Phase 9: Testing & evidence · Tue 29
 
-- [ ] Unit tests: Zod event schemas, funnel pipeline on a fixed dataset, PII masking
-- [ ] Integration tests: checkout transaction, stock race, identity backfill, GDPR erasure
+- [ ] Funnel correctness check on a small fixed dataset (script)
+- [ ] ⭐ Unit test suite: Zod event schemas, PII masking
+- [ ] Scripted checks: stock race, GDPR erasure
+- [ ] ⭐ Automated integration tests (checkout, identity backfill)
 - [ ] Failover test: `docker stop` the primary → election → app recovers
 - [ ] Measure and record: ingest throughput, dashboard latency (raw vs rollup vs cache), index vs collection scan
 - [ ] 📸 Failover sequence (before / during / after)
 - [ ] Code freeze: tidy up, remove dead code, final README pass
 
-## Phase 10: Report (write alongside Phases 1–9, finalise here)
+## Phase 10: Report · draft Tue 29, polish Wed 30 – Thu 1
 
 Draft in Markdown under `docs/report/`, export to **PDF**.
 
@@ -145,10 +170,10 @@ Draft in Markdown under `docs/report/`, export to **PDF**.
 - [ ] References (consistent citation style) + appendices (setup guide, API list)
 - [ ] Proofread, check figures are numbered and referenced, export PDF, check the PDF renders correctly
 
-## Phase 11: Submission & viva prep
+## Phase 11: Submission & viva prep · Wed 30 – Fri 2
 
 - [ ] Package application (source zip / repo link per submission instructions), excluding `node_modules`
-- [ ] Clean-machine test: follow README from scratch → app runs
+- [ ] ⭐ Clean-machine test: follow README from scratch → app runs
 - [ ] Submit PDF + application
 - [ ] Demo script (~10 min): storefront journey → live telemetry → funnel → support timeline → admin (TTL, indexes, health) → failover
 - [ ] Pre-demo checklist: Docker running, data seeded, simulator running, accounts ready
@@ -165,4 +190,4 @@ Draft in Markdown under `docs/report/`, export to **PDF**.
   - Walk through the funnel aggregation
   - How would you scale this 100×?
   - What are the biggest limitations of your solution?
-- [ ] Rehearse demo + Q&A at least twice
+- [ ] Rehearse demo + Q&A at least twice (Wed/Thu)
