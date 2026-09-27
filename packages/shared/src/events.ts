@@ -71,3 +71,12 @@ export type StoredEvent = (ClientEvent | ServerEvent) & {
   device?: { type: DeviceType; os: string; browser: string };
   receivedAt: Date;
 };
+
+/** Every event type, in catalogue order (dashboards and live counters iterate over this). */
+export const EVENT_TYPES = [
+  ...clientEventSchema.options.map((o) => o.shape.type.value),
+  ...serverEventSchema.options.map((o) => o.shape.type.value),
+] as EventType[];
+
+/** Live-counter key suffix: the UTC minute as yyyyMMddHHmm (active:{m}, evt:{type}:{m}). */
+export const minuteKey = (d: Date) => d.toISOString().slice(0, 16).replace(/[-T:]/g, "");

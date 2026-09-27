@@ -27,6 +27,7 @@ export class Client {
 
   get = <T = any>(path: string) => this.request<T>("GET", path);
   post = <T = any>(path: string, body?: unknown) => this.request<T>("POST", path, body ?? {});
+  patch = <T = any>(path: string, body: unknown) => this.request<T>("PATCH", path, body);
   cookie = (name: string) => this.cookies.get(name);
 
   async login(email: string) {

@@ -281,7 +281,9 @@ Hours are **Sri Lanka local hours** (UTC+5:30), so each bucket starts at `hh:30`
 
 ### 4.8 `session_notes` (UC14)
 
-`{ sessionId, customerId?, authorId, body, flagged: bool, status: "open"/"resolved", createdAt }`
+`{ sessionId, customerId?, authorId, authorName, body, flagged: bool, status: "open"/"resolved", createdAt, resolvedAt?, resolvedByName? }`
+
+`authorName` is copied in (denormalised) so the notes list never needs a join to `users`. `customerId` is filled from the session, so a note appears on the customer's profile and is deleted with them on erasure (UC15).
 
 Kept separate from `events` (append-only telemetry) and `session_summaries` (overwritten on every rollup), so annotations are never lost when either is rewritten.
 
@@ -291,7 +293,7 @@ Single document `{ _id: "global", eventRetentionDays: 90, rollupIntervalMin: 5, 
 
 ### 4.10 `audit_log`
 
-`{ at, actorId, actorRole, action, target: {type, id}, details }`, for example `role_changed`, `sessions_revoked`, `retention_changed`, `customer_erased`.
+`{ at, actorId, actorRole, actorName, action, target: {type, id}, details }`. Actions: `role_changed`, `status_changed`, `sessions_revoked`, `retention_changed`, `rollup_interval_changed`, `rollups_rebuild_requested`, `customer_erased`. The `customer_erased` entry records the scope of the erasure (counts per store) but no personal data.
 
 A **capped collection** was considered, since it offers auto-rotation. It was rejected because an audit trail must not silently drop records.
 
@@ -404,7 +406,8 @@ Compound indexes follow the **ESR rule**: **E**quality fields first, then **S**o
 | `session_summaries` | `{customerId: 1, startedAt: -1}` | Customer's sessions list (UC12) |
 | `session_summaries` | `{anonymousId: 1, startedAt: -1}` | Guest sessions list (UC12) |
 | `session_summaries` | `{hadCheckoutFailure: 1, startedAt: -1}` | Support "failed checkouts" queue (UC12) |
-| `metrics_hourly`, `funnel_daily` | compound `_id` | Point/range reads by period (UC1–UC3) |
+| `funnel_daily` | compound `_id` `{day, funnel}` | Range reads by day (UC2) |
+| `metrics_hourly` | `{"_id.hour": 1}` | Range reads by hour (UC1, UC3). The `_id` index on the compound `{hour, type}` can't serve a range on `_id.hour` alone; this was found as a COLLSCAN while building the trends dashboard (Phase 8) |
 | `session_notes` | `{sessionId: 1, createdAt: 1}` | Notes on a session (UC14) |
 | `session_notes` | `{flagged: 1, status: 1, createdAt: -1}` | Escalation queue (UC14) |
 | `audit_log` | `{at: -1}`, `{actorId: 1, at: -1}` | Audit views (UC4) |

@@ -122,41 +122,43 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] `GET /api/analytics/funnel` (analyst/admin, read-only analyst connection, Redis read-through cache 60 s)
 - [x] 📸 `rollups` set: rollup = raw (correctness), raw 144 ms vs rollup 2.2 ms vs cache hit 2.5 ms (API), run cost, sample docs, eventual consistency observed
 
-## Phase 8: Staff dashboards · Tue 29
+## Phase 8: Staff dashboards · Mon 28 ✅
 
 **Analyst (read-only)**
-- [ ] UC1 Live activity: active users now (HyperLogLog), events/min, recent event feed, top pages/products
-- [ ] UC2 Funnel chart with date range + step conversion %
-- [ ] UC3 Export report to CSV/JSON
-- [ ] Analyst queries use `secondaryPreferred`
-- [ ] Analyst queries go through the read-only `da2_analyst` connection (`connectAnalystMongo`)
+- [x] UC1 Live activity: active sessions now (HyperLogLog union over 5 minutes), events/min (30 min), by type, latest events, top pages/products (last hour); polls every 5 s behind a 5 s cache
+- [x] UC1 Hourly trends from `metrics_hourly` (+ average by local hour of day), daily totals, top products with cart rate, top and zero-result searches
+- [x] UC2 Funnel with date range, device filter, step conversion %, device comparison, per-day table
+- [x] UC3 Export any report to CSV/JSON (`GET /api/analytics/export`)
+- [x] Analyst queries use `secondaryPreferred` (evidence: served by a secondary)
+- [x] Analyst queries go through the read-only `da2_analyst` connection (`connectAnalystMongo`)
 
 **Support**
-- [ ] UC12 Find customer (email / order number / anonymous ID) → sessions list → session timeline
-- [ ] UC12 "Failed checkouts" queue
-- [ ] UC13 Order & cart history
-- [ ] UC14 Flag / annotate session; escalation queue
-- [ ] PII masking in API responses for `support`
+- [x] UC12 Find customer (email prefix / order number / anonymous or session ID) → customer 360 → session timeline (raw events)
+- [x] UC12 "Failed checkouts" queue (reason, device, recovered or not)
+- [x] UC13 Order & cart history (any order; live Redis cart)
+- [x] UC14 Flag / annotate session, resolve / re-open; escalation queue
+- [x] PII masking in API responses for `support` (email, phone, street, postcode)
 
 **Admin**
-- [ ] UC4 Manage users & roles; revoke sessions
-- [ ] UC5 Data retention setting → `collMod expireAfterSeconds`
-- [ ] UC6 Index list + `$indexStats` usage; trigger rollup rebuild
+- [x] UC4 Manage users & roles (role change / disable revokes sessions); revoke sessions; live session counts
+- [x] UC5 Data retention setting → `collMod expireAfterSeconds`; rollup interval
+- [x] UC6 Index list + sizes + `$indexStats` usage; last rollup run; trigger rollup rebuild
 - [ ] ⭐ UC6 In-app explain viewer (use `mongosh` output as report evidence instead)
-- [ ] UC7 Health: replica set members/lag, `serverStatus` metrics, Redis `INFO`, stream backlog
-- [ ] UC15 Erase customer data (GDPR) + `audit_log`
-- [ ] ⭐ Audit log viewer (entries are still written)
-- [ ] 📸 Every dashboard page (report + viva backup)
+- [x] UC7 Health: replica set members/lag, `serverStatus` metrics, `dbStats`, Redis `INFO`, stream backlog + dead letters
+- [x] UC15 Erase customer data (GDPR): events by customerId + linked anonymous IDs, summaries, notes, orders pseudonymised, Redis sessions/cart, user tombstone, idempotent, `audit_log`
+- [x] ⭐ Audit log viewer
+- [x] Staff pages excluded from storefront telemetry; worker prunes stale stream consumers; `metrics_hourly` `{_id.hour}` index
+- [x] 📸 `dashboards` set: RBAC, analyst on a secondary, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation, role change, retention, rebuild, GDPR erasure, 14 screenshots
 
 ## Phase 9: Testing & evidence · Tue 29
 
 - [ ] Funnel correctness check on a small fixed dataset (script)
 - [ ] ⭐ Unit test suite: Zod event schemas, PII masking
 - [x] Scripted check: stock race (`npm run evidence -- checkout`)
-- [ ] Scripted check: GDPR erasure
+- [x] Scripted check: GDPR erasure (`npm run evidence -- dashboards` → `gdpr-erasure`)
 - [ ] ⭐ Automated integration tests (checkout, identity backfill)
 - [ ] Failover test: `docker stop` the primary → election → app recovers
-- [ ] Measure and record: ingest throughput, dashboard latency (raw vs rollup vs cache), index vs collection scan
+- [x] Measure and record: ingest throughput (`05-telemetry`), dashboard latency raw vs rollup vs cache (`07-rollups`, `08-dashboards/dashboard-timings`), index vs collection scan (`02-catalog`)
 - [ ] 📸 Failover sequence (before / during / after)
 - [ ] Code freeze: tidy up, remove dead code, final README pass
 

@@ -403,5 +403,230 @@
     "reportSection": "6. Implementation: rollups / 11. Evaluation",
     "file": "07-rollups/rollup-run-cost.md",
     "capturedAt": "2026-09-27T19:06:36.221Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "admin-audit",
+    "title": "Admin: audit log",
+    "shows": "Privileged actions from this evidence run: role changes, retention changes, rebuild requests, erasure.",
+    "reportSection": "6. Implementation: audit trail",
+    "file": "08-dashboards/admin-audit.png",
+    "capturedAt": "2026-09-27T19:33:43.201Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "admin-data",
+    "title": "Admin: retention, rollups and indexes (UC5, UC6)",
+    "shows": "Retention (collMod on the time-series TTL), rollup interval, last rollup run and rebuild button; every index with size and $indexStats usage.",
+    "reportSection": "6. Implementation: data management (UC5/UC6)",
+    "file": "08-dashboards/admin-data.png",
+    "capturedAt": "2026-09-27T19:33:40.710Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "admin-erase-dialog",
+    "title": "Admin: erasure confirmation (UC15)",
+    "shows": "The admin must type the customer's email to confirm; the dialog lists exactly what is deleted and what is kept.",
+    "reportSection": "6. Implementation: GDPR erasure (UC15)",
+    "file": "08-dashboards/admin-erase-dialog.png",
+    "capturedAt": "2026-09-27T19:33:39.267Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "admin-health",
+    "title": "Admin: system health (UC7)",
+    "shows": "Replica set members and lag, MongoDB server counters (incl. aborted transactions from the race test), storage vs data size (compression), Redis INFO and the stream backlog.",
+    "reportSection": "6. Implementation: monitoring (UC7)",
+    "file": "08-dashboards/admin-health.png",
+    "capturedAt": "2026-09-27T19:33:41.972Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "admin-users",
+    "title": "Admin: users & access (UC4, UC15)",
+    "shows": "Roles, status and live Redis session counts; change role, disable, revoke sessions, erase customer data.",
+    "reportSection": "6. Implementation: user management (UC4)",
+    "file": "08-dashboards/admin-users.png",
+    "capturedAt": "2026-09-27T19:33:37.751Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "analyst-connection",
+    "title": "Analyst dashboards read from a secondary, as a read-only user",
+    "shows": "The analyst connection (da2_analyst, readPreference secondaryPreferred) is served by a secondary member, so dashboard load stays off the primary that handles checkouts. A write through it is rejected by MongoDB itself.",
+    "reportSection": "7. Characteristics: replication & read scaling; security",
+    "file": "08-dashboards/analyst-connection.md",
+    "capturedAt": "2026-09-27T19:33:15.147Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "analyst-funnel",
+    "title": "Analyst: purchase funnel (UC2)",
+    "shows": "Ordered funnel from the funnel_daily rollup with step conversion, device comparison, orders per day and a per-day table; CSV/JSON export.",
+    "reportSection": "6. Implementation: funnel (UC2)",
+    "file": "08-dashboards/analyst-funnel.png",
+    "capturedAt": "2026-09-27T19:33:26.931Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "analyst-live",
+    "title": "Analyst: live activity (UC1)",
+    "shows": "Active sessions (HyperLogLog), events per minute and by type from Redis counters, top pages/products and the latest events. Polls every 5 s.",
+    "reportSection": "6. Implementation: live dashboard (UC1)",
+    "file": "08-dashboards/analyst-live.png",
+    "capturedAt": "2026-09-27T19:33:24.471Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "analyst-trends",
+    "title": "Analyst: trends and top lists (UC1, UC3)",
+    "shows": "Hourly activity from metrics_hourly (local hours), the average-by-hour-of-day profile (evening peak), daily totals, top products, top and zero-result searches.",
+    "reportSection": "6. Implementation: trends (UC1)",
+    "file": "08-dashboards/analyst-trends.png",
+    "capturedAt": "2026-09-27T19:33:29.467Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "dashboard-timings",
+    "title": "Dashboard API response times: Redis cache miss vs hit",
+    "shows": "Every analyst endpoint sits behind the Redis read-through cache (5 s TTL for live, 60 s for the rest). The raw-events aggregation is the slowest on a miss, which is why the pre-aggregated rollups exist; a cache hit costs a few milliseconds whatever the source.",
+    "reportSection": "8. Strengths: performance; caching",
+    "file": "08-dashboards/dashboard-timings.md",
+    "capturedAt": "2026-09-27T19:33:15.440Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "escalations",
+    "title": "Flag a session, see it in the escalation queue, resolve it (UC14)",
+    "shows": "Notes live in their own session_notes collection (not in events or the rollups, which are append-only / overwritten). The escalation queue query is an equality-equality-sort that the compound index {flagged, status, createdAt} answers without an in-memory sort.",
+    "reportSection": "6. Implementation: support notes (UC14); indexing (ESR)",
+    "file": "08-dashboards/escalations.md",
+    "capturedAt": "2026-09-27T19:33:15.595Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "export",
+    "title": "Report export as CSV and JSON (UC3)",
+    "shows": "GET /api/analytics/export returns any report as a downloadable file (Content-Disposition: attachment). It uses the same cached computations as the dashboards.",
+    "reportSection": "6. Implementation: export (UC3)",
+    "file": "08-dashboards/export.md",
+    "capturedAt": "2026-09-27T19:33:15.456Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "gdpr-erasure",
+    "title": "Right to erasure, end to end (UC15)",
+    "shows": "A throwaway customer browses anonymously, signs up, orders, and gets a support note. Erasure deletes their events (by the time-series metaField: customerId and linked anonymous ids, including the pre-signup session), session summaries and notes, revokes sessions and deletes the Redis cart, pseudonymises the order (kept for accounting) and the user record. It is idempotent: running it again changes nothing. The audit entry records the scope but no personal data.",
+    "reportSection": "9. Limitations & ethics: GDPR; 7. time-series deletes by metaField",
+    "file": "08-dashboards/gdpr-erasure.md",
+    "capturedAt": "2026-09-27T19:33:21.282Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "live-hyperloglog",
+    "title": "Live 'active sessions': HyperLogLog union vs summing minutes vs exact",
+    "shows": "PFCOUNT over several per-minute HyperLogLogs returns the size of their UNION, so a session active in several minutes counts once. Summing per-minute counts over-counts. Each HLL is at most ~12 KB however many sessions it holds; the estimate is within ~1% of the exact distinct count from MongoDB.",
+    "reportSection": "7. Characteristics: Redis data structures (UC1)",
+    "file": "08-dashboards/live-hyperloglog.md",
+    "capturedAt": "2026-09-27T19:33:15.156Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "pii-masking",
+    "title": "PII masking for the Support role",
+    "shows": "Support agents get masked email, phone and street address (city kept for delivery questions); Admin sees the full record. Masking is applied in the API response, so unmasked data never reaches a support agent's browser.",
+    "reportSection": "9. Limitations & ethics: privacy / data minimisation",
+    "file": "08-dashboards/pii-masking.md",
+    "capturedAt": "2026-09-27T19:33:15.474Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "rbac-dashboards",
+    "title": "Dashboard API access by role",
+    "shows": "Analyst endpoints admit analyst+admin, support endpoints support+admin, admin endpoints admin only. 401 = not logged in, 403 = wrong role. Enforced by requireRole() on the API, not just by hiding links.",
+    "reportSection": "6. Implementation: role-based access (UC4)",
+    "file": "08-dashboards/rbac-dashboards.md",
+    "capturedAt": "2026-09-27T19:33:15.125Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "retention-collmod",
+    "title": "Data retention setting changes the time-series TTL (UC5)",
+    "shows": "Saving the retention setting runs collMod on the events time-series collection. MongoDB then drops whole buckets once all their events are older than the limit: no cron job, no batch deletes in application code.",
+    "reportSection": "6. Implementation: retention (UC5); 7. time-series collections",
+    "file": "08-dashboards/retention-collmod.md",
+    "capturedAt": "2026-09-27T19:33:15.858Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "role-change-revokes",
+    "title": "Changing a role revokes the user's sessions immediately (UC4)",
+    "shows": "The role is copied into the Redis session hash at login, so an admin role change deletes the user's sessions: the old cookie stops working on the very next request, and the new login carries the new role. Both changes are in audit_log.",
+    "reportSection": "6. Implementation: user management (UC4); Redis sessions",
+    "file": "08-dashboards/role-change-revokes.md",
+    "capturedAt": "2026-09-27T19:33:15.776Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "rollup-rebuild",
+    "title": "Admin-triggered full rollup rebuild (UC6)",
+    "shows": "The API only sets a flag in Redis (it returns 202 at once); the worker's scheduler picks it up with GETDEL within 15 s and recomputes every materialised view from all raw events.",
+    "reportSection": "6. Implementation: pre-aggregated views (UC6)",
+    "file": "08-dashboards/rollup-rebuild.md",
+    "capturedAt": "2026-09-27T19:33:19.461Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-customer",
+    "title": "Support: customer 360 (UC12, UC13)",
+    "shows": "Profile, orders, the live Redis cart priced from MongoDB, all sessions (logged-in and anonymous on linked browsers) with funnel progress, and notes.",
+    "reportSection": "6. Implementation: customer view (UC12/UC13)",
+    "file": "08-dashboards/support-customer.png",
+    "capturedAt": "2026-09-27T19:33:31.818Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-escalations",
+    "title": "Support: escalation queue (UC14)",
+    "shows": "Flagged notes still open (index {flagged, status, createdAt}).",
+    "reportSection": "6. Implementation: escalations (UC14)",
+    "file": "08-dashboards/support-escalations.png",
+    "capturedAt": "2026-09-27T19:33:35.470Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-failed-checkouts",
+    "title": "Support: failed-checkouts queue (UC12)",
+    "shows": "Recent checkout_failed events with reason, customer, device and whether the session recovered.",
+    "reportSection": "6. Implementation: support queues (UC12)",
+    "file": "08-dashboards/support-failed-checkouts.png",
+    "capturedAt": "2026-09-27T19:33:34.369Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-order-masked",
+    "title": "Support: any order, PII masked (UC13)",
+    "shows": "Staff order view: item snapshot, totals, payment and status history; email, phone and street masked for the support role.",
+    "reportSection": "9. Ethics: data minimisation",
+    "file": "08-dashboards/support-order-masked.png",
+    "capturedAt": "2026-09-27T19:33:36.633Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-search",
+    "title": "Support: find a customer (UC12)",
+    "shows": "Search by email prefix (index range scan), order number or anonymous/session id; contact details masked for the support role.",
+    "reportSection": "6. Implementation: support search (UC12)",
+    "file": "08-dashboards/support-search.png",
+    "capturedAt": "2026-09-27T19:33:30.589Z"
+  },
+  {
+    "phase": "08-dashboards",
+    "name": "support-session",
+    "title": "Support: session timeline and notes (UC12, UC14)",
+    "shows": "Every event of one session in order (raw events, index {meta.sessionId, ts}), ending in a server-side checkout_failed; the flagged note and the form to add one.",
+    "reportSection": "6. Implementation: session timeline (UC12)",
+    "file": "08-dashboards/support-session.png",
+    "capturedAt": "2026-09-27T19:33:33.008Z"
   }
 ]

@@ -233,11 +233,12 @@ The cost: high-cardinality meta values produce many small buckets and weaker com
 | Role | Access |
 |---|---|
 | `customer` | Storefront, own cart and orders |
-| `analyst` | `/staff/analytics`: aggregated data only, **read-only**, no PII |
-| `support` | `/staff/support`: individual session timelines and order history with **masked PII** (e.g. `j***@gmail.com`), can add session notes |
-| `admin` | `/staff/admin`: user/role management, retention, indexes and rollups, health, erasure |
+| `analyst` | `/staff/live`, `/staff/funnel`, `/staff/trends`: aggregated data only, **read-only**, no PII |
+| `support` | `/staff/support/*`: customer search, session timelines, failed-checkout and escalation queues, order and cart history, with **masked PII** (e.g. `j***@gmail.com`); can add and resolve session notes |
+| `admin` | `/staff/admin/*` plus everything above: user/role management, retention, indexes and rollups, health, erasure, audit log |
 
-- Enforced in API middleware from the Redis session (`role`).
+- Enforced in API middleware from the Redis session (`role`); the dashboard sidebar only hides links. Because the role is cached in the session, **changing a user's role or disabling them revokes their sessions** so the change applies on the next request.
+- Staff pages don't emit storefront telemetry, so staff browsing can't skew customer analytics.
 - PII masking is applied in the API response layer for `support`.
 - **Database-level RBAC** backs up the application RBAC. MongoDB runs with authentication, and the members authenticate to each other with a keyfile:
   - `da2_app`: `readWrite` + `dbAdmin` on `da2` (for TTL `collMod` and indexes), plus `clusterMonitor` (for the UC7 health page)
@@ -252,9 +253,9 @@ The cost: high-cardinality meta values produce many small buckets and weaker com
 | Use case | Implementation |
 |---|---|
 | UC5 Configure Data Purging | Admin sets retention days → saved in `settings` → API runs `collMod: "events", expireAfterSeconds: N` |
-| UC6 Manage Indexes & Pre-Aggregated Views | List indexes + `$indexStats` usage; show `explain("executionStats")` for key dashboard queries; trigger rollup rebuild |
-| UC7 Monitor System Health | `replSetGetStatus` (member states, replication lag), `serverStatus` (connections, opcounters), Redis `INFO`, stream backlog via `XLEN` / `XPENDING` |
-| UC15 Erase Customer Data | `events.deleteMany({"meta.customerId"})`, delete `session_notes`, pseudonymise `users` and `orders` (orders kept for financial records), delete Redis `cart:*`/`sess:*` keys, write `audit_log`. Known gap: events still in the stream at erasure time. Mitigated by running the erasure again after the stream drains. |
+| UC6 Manage Indexes & Pre-Aggregated Views | List indexes with size (`$collStats`) and `$indexStats` usage (zero-use indexes highlighted); last rollup run from `settings`; "rebuild" sets `rollups:rebuild` in Redis, which the worker picks up within 15 s. (`explain()` output lives in the evidence folder rather than an in-app viewer.) |
+| UC7 Monitor System Health | `replSetGetStatus` (member states, replication lag), `serverStatus` (connections, opcounters, transactions), `dbStats` (data vs compressed storage), Redis `INFO`, stream backlog via `XINFO GROUPS` (pending + lag) and the dead-letter stream length |
+| UC15 Erase Customer Data | Admin types the customer's email to confirm. `events.deleteMany` by `meta.customerId` **and** the linked `meta.anonymousId`s (so pre-signup browsing goes too), delete their `session_summaries` and `session_notes`, pseudonymise `orders` (kept for financial records: name, email, phone, street, postcode removed; items, totals and city kept), revoke Redis sessions and delete the cart, pseudonymise the `users` document **last**, write `audit_log` (counts only, no PII). No transaction: time-series writes can't run inside one and Redis isn't covered anyway, so every step is **idempotent** and the erasure can simply be re-run. Known gaps: events still in the Redis stream (until `MAXLEN` trims them), the oplog, and backups. |
 
 ---
 

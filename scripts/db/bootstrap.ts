@@ -97,6 +97,8 @@ const indexes: Record<string, IndexDescription[]> = {
     { key: { anonymousId: 1, startedAt: -1 } },
     { key: { hadCheckoutFailure: 1, startedAt: -1 } },
   ],
+  // _id is the compound {hour, type}, so the _id index can't serve a range on _id.hour alone
+  metrics_hourly: [{ key: { "_id.hour": 1 } }],
   session_notes: [
     { key: { sessionId: 1, createdAt: 1 } },
     { key: { flagged: 1, status: 1, createdAt: -1 } },

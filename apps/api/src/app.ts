@@ -8,6 +8,8 @@ import { staffRouter } from "./routes/staff";
 import { checkoutRouter } from "./routes/checkout";
 import { eventsRouter } from "./routes/events";
 import { analyticsRouter } from "./routes/analytics";
+import { supportRouter } from "./routes/support";
+import { adminRouter } from "./routes/admin";
 import { attachSession } from "./middleware/session";
 import { errorHandler, notFound } from "./lib/http";
 
@@ -33,7 +35,9 @@ export function createApp({ mongo, analyst, redis }: { mongo: Connection; analys
   app.use("/api", checkoutRouter(redis));
   app.use("/api", eventsRouter(redis));
   app.use("/api", analyticsRouter(redis, analyst));
-  app.use("/api", staffRouter(redis));
+  app.use("/api", supportRouter(redis));
+  app.use("/api", adminRouter(redis));
+  app.use("/api", staffRouter);
 
   app.use("/api", notFound);
   app.use(errorHandler);

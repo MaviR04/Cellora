@@ -31,6 +31,18 @@ npm run dev:worker      # moves telemetry from the Redis Stream into MongoDB
 npm run dev:web         # http://localhost:5173  (storefront)
 ```
 
+## Staff dashboards
+
+Log in at http://localhost:5173/login with a demo account, then click **Staff** (or go to `/staff`). Each role sees only its own dashboards, and the API enforces the same rules.
+
+| Account | Dashboards |
+|---|---|
+| `analyst@cellora.test` | Live activity, purchase funnel, trends & top lists, CSV/JSON export |
+| `support@cellora.test` | Find a customer, customer 360, session timeline + notes, failed checkouts, escalations (contact details masked) |
+| `admin@cellora.test` | Everything above, plus users & access (roles, revoke, GDPR erasure), data & indexes (retention, rollups), system health, audit log |
+
+For a lively Live-activity page, run `npm run sim:live` in a fourth terminal.
+
 ## Everyday commands
 
 | Command | What it does |

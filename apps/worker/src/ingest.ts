@@ -8,6 +8,7 @@
 // unique indexes). That trade-off is documented in data-model §10.
 import { hostname } from "node:os";
 import type { Redis } from "ioredis";
+import { minuteKey } from "@da2/shared";
 import { mongoose } from "@da2/shared/server";
 import type { AnyBulkWriteOperation, Collection } from "mongodb";
 
@@ -24,8 +25,6 @@ const consumer = `${hostname()}-${process.pid}`;
 const { ObjectId } = mongoose.Types;
 const oid = (v: unknown) => (typeof v === "string" && /^[a-f0-9]{24}$/.test(v) ? new ObjectId(v) : v ?? null);
 
-/** yyyyMMddHHmm in UTC: the per-minute bucket for live counters. */
-export const minuteKey = (d: Date) => d.toISOString().slice(0, 16).replace(/[-T:]/g, "");
 
 type Entry = [id: string, fields: string[]];
 
@@ -49,6 +48,22 @@ export class Ingestor {
     }
   }
 
+  /**
+   * Every worker start registers a new consumer name (host-pid), so old names pile up in
+   * XINFO GROUPS. Remove those that have been idle for 10 minutes AND hold no pending entries.
+   * (XGROUP DELCONSUMER discards a consumer's pending entries, so never delete one that has any;
+   * recoverPending() claims those first.)
+   */
+  async pruneConsumers() {
+    const rows = (await this.redis.xinfo("CONSUMERS", STREAM, GROUP)) as unknown[][];
+    for (const row of rows) {
+      const c = Object.fromEntries(Array.from({ length: row.length / 2 }, (_, i) => [row[i * 2], row[i * 2 + 1]]));
+      if (c.name !== consumer && Number(c.pending) === 0 && Number(c.idle) > 10 * 60_000) {
+        await this.redis.xgroup("DELCONSUMER", STREAM, GROUP, String(c.name));
+      }
+    }
+  }
+
   stop() {
     this.stopping = true;
   }
@@ -56,6 +71,7 @@ export class Ingestor {
   async run() {
     await this.ensureGroup();
     await this.recoverPending();
+    await this.pruneConsumers();
     let lastClaim = Date.now();
     console.log(`consumer ${consumer} reading ${STREAM}`);
     while (!this.stopping) {

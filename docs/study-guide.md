@@ -676,3 +676,110 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 
 ### One-minute summary
 > Dashboards don't scan raw events. The worker maintains three materialised views (session summaries, hourly metrics and an ordered daily funnel) using aggregation pipelines that end in `$merge`, recomputing only the recent window every 5 minutes. The API reads them through the read-only analyst connection from a secondary node, behind a 60-second Redis read-through cache. The 14-day funnel drops from 144 ms (raw) to 2.2 ms (rollup) or 2.5 ms (cache hit through the API), with identical numbers. The trade-off is eventual consistency, and the evidence shows a new order appearing in the rollup only after its next run.
+
+---
+
+## Phase 8: Staff dashboards (Analyst, Support, Admin)
+
+### Concepts
+
+**Where does each dashboard read from, and why?** This is the most likely viva question for this phase. Every choice is a trade-off between freshness, cost, and load on the primary:
+
+| Dashboard | Reads from | Connection | Why |
+|---|---|---|---|
+| Live activity (UC1) | Redis counters (`active:{m}` HyperLogLog, `evt:{type}:{m}`) + latest events | analyst (secondary) | Counting in Redis is O(1) and already done by the worker; no scan at all |
+| Funnel (UC2) | `funnel_daily` rollup | analyst (secondary) | Pre-computed: a few dozen small documents |
+| Trends (UC1) | `metrics_hourly` rollup | analyst (secondary) | Pre-computed per local hour |
+| Top products / searches | raw `events`, `{type, ts}` index | analyst (secondary) | Flexible query; slow-ish (≈110 ms), so behind the 60 s cache |
+| Support: session timeline | raw `events`, `{meta.sessionId, ts}` | **primary** | Must be up to the second while the customer is on the phone |
+| Support: notes | `session_notes` | **primary** | Read-your-writes: the agent must see the note they just saved |
+| Admin: health | `replSetGetStatus`, `serverStatus`, Redis `INFO`, `XINFO` | primary | Live system state |
+
+- **Analyst → secondary, read-only.** The evidence shows the query was served by `:27018` (a secondary) while the primary is `:27017`, and that an insert through the analyst connection fails with *not authorized*. There are two protections: dashboard load never slows checkouts, and even buggy code can't write.
+- **Support → primary.** Replication lag (usually well under a second) is fine for charts but not for "I just added a note and it's not there".
+
+**HyperLogLog: "how many people are on the site right now?"**
+- Each minute the worker does `PFADD active:{minute} sessionId`. An HLL estimates *distinct* members in a fixed ~12 KB (here only 160 bytes, because small HLLs use a sparse encoding), with ~0.8% error.
+- `PFCOUNT key1 … key5` counts the **union**. A session active in 3 of the last 5 minutes counts once.
+- **Evidence:** summing the minutes gives 66 (wrong, double counts), the union gives 57, and the exact distinct count from MongoDB is 57.
+- A SQL equivalent would be `COUNT(DISTINCT session_id) … WHERE ts > now() - 5 min` over the events table, every 5 seconds.
+
+**Caching (read-through) on every analyst endpoint.**
+- 5 s TTL for live, 60 s for the rest. With 10 analysts polling live every 5 s, MongoDB does the work once per 5 s, not 10 times.
+- Measured (`dashboard-timings`): raw-events aggregation 112 ms on a miss vs about 3 ms on a hit; rollup reads are 6–70 ms on a miss.
+
+**A performance bug found and fixed (a good story for the viva).**
+- The trends endpoint took ~550 ms. Profiling showed MongoDB took 1 ms; the time went on `toLocaleDateString(…, {timeZone})` called 2,400 times (Intl formatting is slow). Replacing it with offset arithmetic brought it to ~80 ms.
+- The same investigation found a COLLSCAN: `metrics_hourly`'s `_id` is a compound `{hour, type}`, and **the `_id` index can't serve a range on `_id.hour` alone**. Fix: a separate index `{"_id.hour": 1}`.
+- The lessons: measure before guessing, and a compound `_id` is not the same as a compound index on its fields.
+
+**PII masking (data minimisation).**
+- Support sees `c***r@cellora.test`, `••• ••• 4567`, and the street hidden but the city kept (useful for delivery questions). Admin sees everything.
+- It's done in the **API response** (`lib/pii.ts`), so unmasked data never reaches a support browser. Hiding it with CSS would still send it.
+
+**RBAC: UI vs API.**
+- The sidebar only shows links your role may use, but that's cosmetic. `requireRole()` on every route is the real control (`rbac-dashboards` matrix: 401 anonymous, 403 wrong role).
+- **Role change revokes sessions.** The role is copied into the Redis session hash at login, so after an admin changes a role, the old session would keep the old role until it expired. So the API revokes the user's sessions, and the evidence shows the old cookie returning `{user: null}` immediately. This is the same reason Phase 3 chose server-side sessions over JWTs.
+
+**Retention (UC5) with `collMod`.** Saving "keep events for 60 days" runs `db.runCommand({collMod: "events", expireAfterSeconds: 5184000})`. MongoDB's TTL monitor then deletes whole **buckets** once every event in them has expired. There's no cron job or batch delete code, a NoSQL feature built for telemetry.
+
+**Rollup rebuild (UC6): API asks, worker does.** `POST /admin/rollups/rebuild` only `SET`s `rollups:rebuild` in Redis and returns **202 Accepted**. The worker's 15 s scheduler `GETDEL`s it and runs the full rebuild (≈0.9 s here). Long jobs don't belong in an HTTP request.
+
+**`$indexStats` (UC6).** It shows how many times each index was used since the server started, on that node. Zero-use indexes are candidates for removal, since each index costs RAM and slows writes. Two caveats: counts reset on restart and are per node.
+
+**GDPR erasure (UC15), the most "NoSQL-specific" admin feature:**
+1. Delete events by the time-series **metaField**: `meta.customerId` **and** every `meta.anonymousId` linked at login. That also catches browsing from *before* they signed up.
+2. Delete their `session_summaries` and `session_notes`.
+3. **Pseudonymise** orders (keep items and totals for accounting, which is a lawful basis; strip name, email, phone, street, postcode).
+4. Revoke Redis sessions and delete the cart.
+5. Tombstone the user **last**. It holds the anonymous IDs, so if anything fails you can just run it again.
+6. Write `audit_log` with **counts only**, no PII.
+- **No transaction?** Correct. Writes to time-series collections can't run inside a multi-document transaction, and Redis isn't part of MongoDB transactions anyway. Instead every step is **idempotent**. The evidence runs it twice: the second run touches nothing.
+- **Denormalisation makes erasure harder:** personal data was copied into orders (snapshots), events (meta), summaries and notes. That's a real limitation to discuss in the report.
+- **Known gaps:** copies in the Redis stream until trimmed, the oplog, and backups.
+
+**Small but good details:**
+- Staff pages don't emit storefront `page_view` events, so staff browsing doesn't skew customer analytics.
+- The worker prunes stale stream consumers (idle > 10 min **and** 0 pending), because `XGROUP DELCONSUMER` would discard a consumer's pending entries.
+- `checkout_failed` is a server event with no browser user agent, so the failed-checkouts queue takes the device from the session summary.
+
+### Read these files
+1. [apps/api/src/routes/analytics.ts](../apps/api/src/routes/analytics.ts): live (Redis pipeline + `PFCOUNT` union), trends, top, export (`toCsv`).
+2. [apps/api/src/routes/support.ts](../apps/api/src/routes/support.ts): search (three kinds of lookup), customer 360 (`$or` over customerId + anonymousIds), timeline, queues, notes.
+3. [apps/api/src/routes/admin.ts](../apps/api/src/routes/admin.ts): **read the erasure handler carefully**; also `collMod`, `$indexStats`/`$collStats`, the health commands.
+4. [apps/api/src/lib/pii.ts](../apps/api/src/lib/pii.ts) and [lib/audit.ts](../apps/api/src/lib/audit.ts): short.
+5. [apps/web/src/pages/staff/](../apps/web/src/pages/staff/): `StaffLayout.tsx` (role-based nav), then skim the Analyst/Support/Admin pages. They are ordinary React Query + fetch.
+
+### Try it yourself
+1. Log in as **support** → *Find a customer* → search `sim-01` → open a customer → open a session with "checkout failed" → add a note with **Flag for escalation** → see it under *Escalations* → *Mark resolved*.
+2. Log in as **analyst** → the Staff pages → note the "Source: … Redis cache hit" line. Reload within 60 s and it says *cache hit*.
+3. Log in as **admin** → *Data & indexes* → change retention to 60 days → Save, then in `npm run db:shell`:
+   ```js
+   db.getCollectionInfos({ name: "events" })[0].options.expireAfterSeconds   // 5184000
+   ```
+   Set it back to 90.
+4. Admin → *System health*, while you run `docker stop mongo1` (Phase 9 does this properly): watch the members table.
+5. In `npm run redis:cli`:
+   ```
+   KEYS active:*                    # one HyperLogLog per minute
+   PFCOUNT active:<m1> active:<m2>  # union of two minutes
+   ```
+
+### Viva questions
+- **"Why do analyst queries go to a secondary but support queries to the primary?"** Load isolation and read-only safety vs read-your-writes freshness. Consistency is chosen per use case.
+- **"How do you count active users?"** HyperLogLog per minute; `PFCOUNT` over 5 keys = union; ~0.8% error in tiny memory; exact count matched (57 = 57).
+- **"How is PII protected?"** Masked in the API response for support; analysts only ever see aggregates; the audit log for erasure holds no PII; erasure covers anonymous pre-signup data too.
+- **"Walk me through GDPR erasure. Why no transaction?"** The steps above; time-series and Redis can't join a transaction; idempotent steps with the user tombstone last; evidence shows re-running is a no-op.
+- **"What does denormalisation cost you here?"** Erasure has to find copies in four collections and Redis; with SQL + foreign keys you might cascade-delete from one place.
+- **"If I change a user's role, when does it take effect?"** Immediately. Their Redis sessions are revoked because the role is cached there.
+- **"How does the admin change data retention?"** `collMod expireAfterSeconds` on the time-series collection; MongoDB expires buckets itself.
+- **"How do you know which indexes are useful?"** `$indexStats` usage counters (per node, since restart) plus `explain()` on the dashboard queries. Tell the `metrics_hourly` COLLSCAN story.
+- **"What if the dashboard is slow?"** It's layered: rollups (pre-aggregate), Redis cache (TTL), secondary reads. Measure with timings before optimising (the Intl story).
+
+### Evidence
+`evidence/08-dashboards/`:
+- **Text:** RBAC matrix, analyst on a secondary + write rejected, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation flow, role change → sessions revoked, retention `collMod`, rollup rebuild, GDPR erasure end to end.
+- **Screenshots:** 14, one per dashboard page plus the erase dialog.
+
+### One-minute summary
+> Three role-based dashboards sit on top of the pipeline. Analysts get live activity from Redis HyperLogLogs and counters, plus funnels and trends from the rollups, all on a read-only connection to a secondary, behind a Redis cache, with CSV/JSON export. Support finds a customer by email, order number or browser ID, and sees their orders, live Redis cart and every session. That includes anonymous ones from before they signed up, linked by identity stitching, with a to-the-second event timeline. Support can annotate and escalate, and contact details are masked. Admins manage roles (a change revokes sessions immediately), set retention (`collMod` on the time-series TTL), inspect index usage, trigger rollup rebuilds, monitor the replica set, Redis and the stream, and erase a customer. Erasure is an idempotent, audited clean-up across four collections and Redis, because time-series writes can't be in a transaction and the data is deliberately denormalised.
