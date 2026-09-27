@@ -7,7 +7,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - Viva, 30–45 min. *(35 marks)*
 
 **Conventions**
-- 📸 = capture a screenshot, output or measurement for the report *while* doing the task. Save to `docs/report/evidence/`.
+- 📸 = evidence for the report, captured *while* doing the task with `npm run evidence -- <set>` into [`evidence/`](../evidence/README.md). Each phase gets a capture set.
 - ⭐ = stretch goal; do it only if the core items are done and on schedule.
 - Related docs: [use-cases-and-roles.md](use-cases-and-roles.md) · [architecture.md](architecture.md) · [data-model.md](data-model.md)
 
@@ -49,15 +49,16 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 1: Foundation · Sun 27
 
-- [ ] npm workspaces monorepo: `apps/web`, `apps/api`, `apps/worker`, `packages/shared`, `scripts/`, `infra/`
-- [ ] TypeScript config (shared base `tsconfig`)
+- [x] npm workspaces monorepo: `apps/api`, `apps/worker`, `packages/shared`, `scripts/`, `infra/` (`apps/web` created in Phase 2)
+- [x] TypeScript config (shared base `tsconfig`)
 - [ ] ⭐ ESLint + Prettier
-- [ ] `infra/docker-compose.yml`: 3-node MongoDB replica set (`rs0`) + init container, Redis with AOF
-- [ ] `.env.example` + config loader (Mongo URI, Redis URL, session secret)
-- [ ] `packages/shared`: Zod schemas for event envelope + event types, product kinds, roles
-- [ ] DB bootstrap script: create `events` time-series collection, `products` `$jsonSchema` validator, all indexes from data-model §8
-- [ ] Root `README.md`: prerequisites + how to run
-- [ ] 📸 `rs.status()` showing 3 members; `docker compose ps`
+- [x] `infra/docker-compose.yml`: 3-node MongoDB replica set (`rs0`, self-initiating healthcheck), Redis with AOF
+- [x] `.env.example` + config loader (Mongo URI, Redis URL, session secret)
+- [x] `packages/shared`: Zod schemas for event envelope + event types, product kinds, roles
+- [x] DB bootstrap script: create `events` time-series collection, `products` `$jsonSchema` validator, all indexes from data-model §8
+- [x] Root `README.md`: prerequisites + how to run
+- [x] Evidence tooling: `npm run evidence -- <set>` (text captures + Edge screenshots, auto-generated index)
+- [x] 📸 `foundation` set: containers, replica set status, collections & indexes, Redis persistence, API health
 
 ## Phase 2: Catalog & storefront · Sun 27 (seed + API), Mon 28 (UI)
 
@@ -121,7 +122,8 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] UC1 Live activity: active users now (HyperLogLog), events/min, recent event feed, top pages/products
 - [ ] UC2 Funnel chart with date range + step conversion %
 - [ ] UC3 Export report to CSV/JSON
-- [ ] Analyst queries use `secondaryPreferred` + read-only DB user
+- [ ] Analyst queries use `secondaryPreferred`
+- [ ] ⭐ Read-only MongoDB user for analyst queries (needs auth + keyfile on the replica set; local dev runs without auth)
 
 **Support**
 - [ ] UC12 Find customer (email / order number / anonymous ID) → sessions list → session timeline

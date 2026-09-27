@@ -1,0 +1,13 @@
+{
+  "name": "@da2/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bootstrap": "tsx db/bootstrap.ts",
+    "evidence": "tsx evidence/cli.ts"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

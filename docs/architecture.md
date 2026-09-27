@@ -239,7 +239,7 @@ The cost: high-cardinality meta values produce many small buckets and weaker com
 
 - Enforced in API middleware from the Redis session (`role`).
 - PII masking is applied in the API response layer for `support`.
-- The application connects to MongoDB with a least-privilege database user. Analyst queries use a separate read-only MongoDB user. This shows database-level RBAC alongside application RBAC.
+- *Stretch:* connect with a least-privilege MongoDB user, and run analyst queries as a separate read-only user, to show database-level RBAC alongside application RBAC. This needs authentication and a keyfile on the replica set; local development runs without authentication, which the report notes as a production gap.
 - Staff actions are written to `audit_log`.
 
 ---
@@ -261,8 +261,8 @@ Docker Compose runs the infrastructure. The Node processes run on the host durin
 
 | Service | Image | Notes |
 |---|---|---|
-| `mongo1`, `mongo2`, `mongo3` | `mongo:7` | Replica set `rs0`; initialised by a one-off `mongo-init` container |
-| `redis` | `redis:7` | AOF enabled |
+| `mongo1`, `mongo2`, `mongo3` | `mongo:7.0` | Replica set `rs0`, members advertised as `host.docker.internal:27017-27019`; `mongo1`'s healthcheck initiates the set on first start |
+| `redis` | `redis:7.4` | AOF enabled |
 
 **Viva demo:** stop the primary (`docker stop mongo1`). The admin health page (UC7) shows a new primary being elected while the storefront keeps working.
 

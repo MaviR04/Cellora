@@ -1,0 +1,78 @@
+name: da2
+
+# 3-node MongoDB replica set + Redis.
+#
+# Each mongod listens on its own port and advertises itself as host.docker.internal:<port>.
+# That name resolves both inside containers and on the Windows host (Docker Desktop adds it
+# to the hosts file), so the app on the host can follow replica set failover without any
+# hosts-file edits.
+
+x-mongo: &mongo
+  image: mongo:7.0
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+services:
+  mongo1:
+    <<: *mongo
+    container_name: mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports: ["27017:27017"]
+    volumes: ["mongo1-data:/data/db"]
+    # Initiates the replica set on first start, then just reports health.
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --port
+        - "27017"
+        - --quiet
+        - --eval
+        - >
+          try { rs.status().ok } catch (e) {
+            rs.initiate({ _id: 'rs0', members: [
+              { _id: 0, host: 'host.docker.internal:27017', priority: 2 },
+              { _id: 1, host: 'host.docker.internal:27018', priority: 1 },
+              { _id: 2, host: 'host.docker.internal:27019', priority: 1 }
+            ]}).ok
+          }
+      interval: 5s
+      timeout: 10s
+      start_period: 10s
+      retries: 30
+    depends_on: [mongo2, mongo3]
+
+  mongo2:
+    <<: *mongo
+    container_name: mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    ports: ["27018:27018"]
+    volumes: ["mongo2-data:/data/db"]
+
+  mongo3:
+    <<: *mongo
+    container_name: mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    ports: ["27019:27019"]
+    volumes: ["mongo3-data:/data/db"]
+
+  redis:
+    image: redis:7.4
+    container_name: redis
+    restart: unless-stopped
+    # AOF persistence, fsync every second (see architecture.md §8).
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports: ["6379:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:
+  redis-data:

@@ -1,0 +1,47 @@
+[
+  {
+    "phase": "01-foundation",
+    "name": "api-health",
+    "title": "API health endpoint",
+    "shows": "The Node API connected to the replica set (reporting the current primary) and to Redis.",
+    "reportSection": "6. Implementation",
+    "file": "01-foundation/api-health.png",
+    "capturedAt": "2026-09-27T11:32:18.296Z"
+  },
+  {
+    "phase": "01-foundation",
+    "name": "collections-and-indexes",
+    "title": "Collections, options and indexes",
+    "shows": "The time-series events collection with TTL, the products $jsonSchema validator, and every index from the data model.",
+    "reportSection": "5. Data model",
+    "file": "01-foundation/collections-and-indexes.md",
+    "capturedAt": "2026-09-27T11:32:16.354Z"
+  },
+  {
+    "phase": "01-foundation",
+    "name": "docker-compose-ps",
+    "title": "Running containers",
+    "shows": "Three MongoDB nodes and Redis running and healthy in Docker.",
+    "reportSection": "4. Solution design: deployment",
+    "file": "01-foundation/docker-compose-ps.md",
+    "capturedAt": "2026-09-27T11:32:16.271Z"
+  },
+  {
+    "phase": "01-foundation",
+    "name": "redis-persistence",
+    "title": "Redis persistence configuration",
+    "shows": "Redis runs with append-only-file persistence, fsync every second (at most ~1 s of data at risk).",
+    "reportSection": "10. Limitations: Redis durability",
+    "file": "01-foundation/redis-persistence.md",
+    "capturedAt": "2026-09-27T11:32:16.366Z"
+  },
+  {
+    "phase": "01-foundation",
+    "name": "replica-set-status",
+    "title": "Replica set status (rs0)",
+    "shows": "A 3-member replica set with one PRIMARY and two SECONDARY nodes, the basis for replication, failover and multi-document transactions.",
+    "reportSection": "7. Characteristics: replication & availability",
+    "file": "01-foundation/replica-set-status.md",
+    "capturedAt": "2026-09-27T11:32:16.337Z"
+  }
+]
