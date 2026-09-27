@@ -60,7 +60,7 @@
     "shows": "A phone (22 top-level fields) and a screen protector (14 fields) stored side by side in `products`. Each document carries only its own attributes: no NULL columns, no EAV table, no migration per product type.",
     "reportSection": "7. Characteristics: flexible schema",
     "file": "02-catalog/polymorphic-documents.md",
-    "capturedAt": "2026-09-27T12:17:19.013Z"
+    "capturedAt": "2026-09-27T12:49:07.279Z"
   },
   {
     "phase": "02-catalog",
@@ -69,7 +69,7 @@
     "shows": "Each storefront query is served by the index designed for it (IXSCAN / TEXT_MATCH), examining only the matching documents; the forced collection scan reads every document for the same result.",
     "reportSection": "5. Data model: indexing (ESR) / 9. Strengths",
     "file": "02-catalog/query-plans.md",
-    "capturedAt": "2026-09-27T12:17:19.090Z"
+    "capturedAt": "2026-09-27T12:49:07.355Z"
   },
   {
     "phase": "02-catalog",
@@ -78,7 +78,7 @@
     "shows": "The $jsonSchema validator enforces only the shared base fields (kind, price, stock >= 0...). A new, kind-specific attribute is accepted without a migration, while invalid data is rejected by the database itself.",
     "reportSection": "7. Characteristics: schema-on-write vs flexible schema",
     "file": "02-catalog/schema-validation.md",
-    "capturedAt": "2026-09-27T12:17:19.064Z"
+    "capturedAt": "2026-09-27T12:49:07.327Z"
   },
   {
     "phase": "02-catalog",
@@ -87,7 +87,7 @@
     "shows": "Cases filtered by brand and price; filters are held in the URL and served by indexed queries.",
     "reportSection": "6. Implementation",
     "file": "02-catalog/storefront-category-filtered.png",
-    "capturedAt": "2026-09-27T12:17:25.327Z"
+    "capturedAt": "2026-09-27T12:49:12.517Z"
   },
   {
     "phase": "02-catalog",
@@ -96,7 +96,7 @@
     "shows": "Phones listing sorted by price, with brand and price facets computed by a $facet aggregation.",
     "reportSection": "6. Implementation",
     "file": "02-catalog/storefront-category-phones.png",
-    "capturedAt": "2026-09-27T12:17:23.533Z"
+    "capturedAt": "2026-09-27T12:49:11.147Z"
   },
   {
     "phase": "02-catalog",
@@ -105,7 +105,7 @@
     "shows": "Home page with category tiles (per-kind counts and starting prices from an aggregation).",
     "reportSection": "6. Implementation",
     "file": "02-catalog/storefront-home.png",
-    "capturedAt": "2026-09-27T12:17:21.325Z"
+    "capturedAt": "2026-09-27T12:49:09.520Z"
   },
   {
     "phase": "02-catalog",
@@ -114,7 +114,7 @@
     "shows": "A case uses the same page template with a completely different spec table, plus the reverse lookup: which phones it fits.",
     "reportSection": "6. Implementation: flexible schema in the UI",
     "file": "02-catalog/storefront-product-accessory.png",
-    "capturedAt": "2026-09-27T12:17:30.821Z"
+    "capturedAt": "2026-09-27T12:49:16.006Z"
   },
   {
     "phase": "02-catalog",
@@ -123,7 +123,7 @@
     "shows": "Phone page with storage/colour variants, phone-specific specs, and compatible accessories matched by model, connector and platform.",
     "reportSection": "6. Implementation: flexible schema in the UI",
     "file": "02-catalog/storefront-product-phone.png",
-    "capturedAt": "2026-09-27T12:17:28.985Z"
+    "capturedAt": "2026-09-27T12:49:14.720Z"
   },
   {
     "phase": "02-catalog",
@@ -132,6 +132,78 @@
     "shows": "Full-text search ranked by weighted textScore (name > brand > description).",
     "reportSection": "6. Implementation",
     "file": "02-catalog/storefront-search.png",
-    "capturedAt": "2026-09-27T12:17:33.071Z"
+    "capturedAt": "2026-09-27T12:49:17.396Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "add-to-cart",
+    "title": "Product page after adding to cart",
+    "shows": "Add to cart updates the Redis cart and the header count.",
+    "reportSection": "6. Implementation: carts (UC10)",
+    "file": "03-auth-cart/add-to-cart.png",
+    "capturedAt": "2026-09-27T12:49:21.607Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "cart-page",
+    "title": "Cart (logged-in customer)",
+    "shows": "Cart held in Redis, displayed with live prices and stock from MongoDB.",
+    "reportSection": "6. Implementation: carts (UC10)",
+    "file": "03-auth-cart/cart-page.png",
+    "capturedAt": "2026-09-27T12:49:20.157Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "guest-cart-merge",
+    "title": "Redis cart: guest cart merged on login",
+    "shows": "A guest cart (HASH sku -> qty, 30-day TTL) is folded into the customer's cart with HINCRBY at login. Prices are not stored in Redis; the API joins live prices from MongoDB.",
+    "reportSection": "6. Implementation: carts in Redis (UC10)",
+    "file": "03-auth-cart/guest-cart-merge.md",
+    "capturedAt": "2026-09-27T12:49:17.649Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "login-page",
+    "title": "Login page",
+    "shows": "Login with the demo accounts for each role.",
+    "reportSection": "6. Implementation",
+    "file": "03-auth-cart/login-page.png",
+    "capturedAt": "2026-09-27T12:49:18.961Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "rbac-matrix",
+    "title": "Role-based access control matrix",
+    "shows": "HTTP status for each role on endpoints of increasing privilege: 401 = not logged in, 403 = logged in but wrong role, 200/404 = allowed through.",
+    "reportSection": "6. Implementation: access control (UC4)",
+    "file": "03-auth-cart/rbac-matrix.md",
+    "capturedAt": "2026-09-27T12:49:17.545Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "session-revocation",
+    "title": "Redis sessions and instant revocation",
+    "shows": "Sessions are Redis hashes with a TTL, indexed per user in a SET. An admin revoking a user's sessions deletes the keys, so the user is logged out on their very next request (a JWT could not be revoked before expiry). The action is written to audit_log.",
+    "reportSection": "6. Implementation: sessions (UC4) / 7. Characteristics: key-value store",
+    "file": "03-auth-cart/session-revocation.md",
+    "capturedAt": "2026-09-27T12:49:17.751Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "staff-home-analyst",
+    "title": "Staff area as analyst",
+    "shows": "Staff-only area reached after logging in with a staff role.",
+    "reportSection": "6. Implementation: access control (UC4)",
+    "file": "03-auth-cart/staff-home-analyst.png",
+    "capturedAt": "2026-09-27T12:49:22.748Z"
+  },
+  {
+    "phase": "03-auth-cart",
+    "name": "user-document",
+    "title": "Customer document",
+    "shows": "A customer in `users`: scrypt password hash with a per-user salt, and the anonymous browser IDs linked at login (identity stitching, bounded to 20 with $push/$slice).",
+    "reportSection": "5. Data model: users",
+    "file": "03-auth-cart/user-document.md",
+    "capturedAt": "2026-09-27T12:49:17.756Z"
   }
 ]

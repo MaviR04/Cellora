@@ -230,3 +230,88 @@ db.products.insertOne({ kind: "laptop", slug: "x", name: "x", brand: "x", basePr
 
 ### One-minute summary
 > All seven product types live in one `products` collection. Each document carries only its own attributes, so adding a product type needs no migration. Validation is layered: Zod at the API, Mongoose per kind, and MongoDB's `$jsonSchema` for the shared base fields, including `stock >= 0`. Variants are embedded for atomic stock updates, and `basePrice` is denormalised so listings sort on an index. Every storefront query is served by a purpose-built index following the ESR rule, and the explain plans prove it.
+
+---
+
+## Phase 3: Auth, sessions & cart
+
+### Concepts
+
+**Key-value store (Redis).** Every piece of data is reached by its **key**, and the value has a type:
+
+| Redis type | Used for | Commands you'll see |
+|---|---|---|
+| HASH (a small map of fields) | a cart (`sku → qty`), a session (`userId, role, …`) | `HSET`, `HGETALL`, `HINCRBY`, `HDEL` |
+| SET (unique members) | all session ids of one user | `SADD`, `SMEMBERS`, `SREM` |
+| any key + TTL | carts expire after 30 days, sessions after 7 d / 8 h | `EXPIRE`, `TTL` |
+
+- No query language and no secondary indexes: you design the **key names** so that you always know the key you need (`cart:u:{userId}`, `sess:{id}`).
+- It's in-memory, so reads and writes take well under a millisecond. It's persisted with AOF (Phase 1), so at most ~1 s of data could be lost in a crash.
+
+**Why carts are in Redis, not MongoDB.**
+- They change on nearly every click, are temporary (abandoned carts should just disappear), and are always fetched by one key.
+- That's the key-value sweet spot. TTL handles cleanup for free, with no cron job and no delete query.
+- **Prices are not stored in the cart.** The API joins the Redis quantities with *live* prices and stock from MongoDB on every view, so a cart can't lock in a stale price. That's a deliberate "reference, don't copy" decision, the opposite of order snapshots (Phase 4).
+
+**Guest cart merge.** A guest gets a random cart id in a cookie (`cart:{cid}`). At login, each line is folded into the customer's cart with `HINCRBY`, and the guest key is deleted, inside a `MULTI` transaction (all commands run together).
+
+**Server-side sessions vs JWT.**
+- *Our design:* the browser holds only a random 256-bit id in an **httpOnly** cookie (JavaScript can't read it, which protects against XSS). The session data lives in Redis.
+- *JWT:* the token itself contains the user data, signed. Nothing needs to be stored on the server, but **it can't be revoked** before it expires.
+- **Revocation (UC4):** each user's session ids are kept in a SET, so "log this user out everywhere" is: read the set, delete those keys. The very next request fails. That's the trade-off that justifies Redis here.
+
+**RBAC (role-based access control) in the API:**
+- `requireAuth` → **401** if there's no valid session.
+- `requireRole("admin")` → **403** if you're logged in but have the wrong role.
+- This is the *application* layer. The *database* layer (the read-only analyst user) was Phase 1. Two layers = defence in depth.
+
+**Password storage.** Never store passwords, only a slow, salted hash.
+- **scrypt** (built into Node) is deliberately slow and memory-hard, so brute-forcing a leaked hash is expensive.
+- A random salt per user means identical passwords give different hashes.
+- `timingSafeEqual` compares hashes in constant time, so response timing doesn't leak how many bytes matched.
+- The same error message for "no such email" and "wrong password" means the login form doesn't reveal which accounts exist.
+
+**Identity stitching (preview of Phase 5).**
+- Every request carries `X-Anonymous-Id` (one per browser) and `X-Session-Id` (one per visit, renewed after 30 min of inactivity).
+- At login, the anonymous id is added to `users.anonymousIds` with `$push` + `$each` + `$slice: -20`: a **bounded array**, so the embedded list can never grow without limit. That's the embedding rule from Phase 0 in action.
+
+### Read these files
+1. [apps/api/src/lib/sessions.ts](../apps/api/src/lib/sessions.ts): the session key layout, `createSession`, `revokeAllSessions`.
+2. [apps/api/src/middleware/session.ts](../apps/api/src/middleware/session.ts): how `req.user` is loaded; `requireAuth` vs `requireRole`.
+3. [apps/api/src/lib/cart.ts](../apps/api/src/lib/cart.ts): cart keys, `loadCart` (Redis + MongoDB join), `mergeGuestCart`.
+4. [apps/api/src/routes/auth.ts](../apps/api/src/routes/auth.ts): login flow: verify → session → link anonymous id → merge cart.
+5. [packages/shared/src/server/auth.ts](../packages/shared/src/server/auth.ts): scrypt hashing (about 20 lines).
+6. [apps/web/src/lib/identity.ts](../apps/web/src/lib/identity.ts): where the anonymous and session ids come from.
+
+### Try it yourself
+Add a couple of items to the cart in the browser (logged out), then:
+```bash
+npm run redis:cli
+```
+```
+SCAN 0 MATCH cart:* COUNT 100        # find your guest cart key
+HGETALL cart:<id>                    # sku -> qty
+TTL cart:<id>                        # seconds until it expires (~30 days)
+```
+Log in as `customer@cellora.test` and run `SCAN 0 MATCH cart:* COUNT 100` again: the guest key is gone and `cart:u:<userId>` holds the merged items.
+```
+SCAN 0 MATCH sess:* COUNT 100
+HGETALL sess:<id>                    # userId, role, name, email, createdAt
+TTL sess:<id>                        # 604800 = 7 days for customers, 28800 = 8 h for staff
+DEL sess:<id>                        # refresh the browser: you're logged out instantly
+```
+
+### Viva questions
+- **"Why use Redis for carts and sessions instead of MongoDB?"** Frequent small writes, temporary data with a natural expiry (TTL), and always looked up by a single key: the key-value sweet spot, served from memory. For sessions specifically: instant revocation.
+- **"What happens to a cart if Redis crashes?"** AOF with `everysec`: at most ~1 s of changes lost. Acceptable for carts (the customer re-adds an item); that's why **orders are never stored only in Redis**.
+- **"Why not JWT?"** A JWT can't be revoked before it expires. UC4 needs "remove access now". Server-side sessions trade a Redis lookup per request for that ability.
+- **"Why don't you store the price in the cart?"** So the displayed and charged price is always the current one. Compare with orders, which *do* copy prices because an order is a historical record.
+- **"How do you stop an analyst calling admin endpoints?"** `requireRole` returns 403 (show the `rbac-matrix` evidence), and even if that failed, the analyst's database login can't write (Phase 1).
+- **"How are passwords stored?"** scrypt with a per-user random salt, compared in constant time; the same error for an unknown email and a wrong password.
+- **"What's `$slice: -20` doing in the login code?"** Keeps the embedded `anonymousIds` array bounded, following the embed-only-if-bounded rule.
+
+### Evidence
+`evidence/03-auth-cart/`: RBAC matrix, guest cart merge (Redis before/after), session revocation (with audit log), user document, and 4 screenshots.
+
+### One-minute summary
+> Redis holds the fast, temporary, key-addressed data. Carts are hashes of SKU to quantity with a 30-day TTL, merged from guest to customer at login, and always priced live from MongoDB. Sessions are Redis hashes behind an httpOnly cookie, indexed per user in a set, so an admin can revoke them instantly, which a JWT can't do. The API enforces roles with 401/403, backed by the read-only database user from Phase 1. Passwords are scrypt-hashed with per-user salts.

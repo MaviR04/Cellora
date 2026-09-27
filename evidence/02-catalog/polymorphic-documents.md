@@ -1,6 +1,6 @@
 # Two product kinds in one collection
 
-- **Captured:** 2026-09-27T12:17:19.011Z
+- **Captured:** 2026-09-27T12:49:07.278Z
 - **Shows:** A phone (22 top-level fields) and a screen protector (14 fields) stored side by side in `products`. Each document carries only its own attributes: no NULL columns, no EAV table, no migration per product type.
 - **Report section:** 7. Characteristics: flexible schema
 - **Command:** `db.products.findOne({ slug: "galaxy-s25-ultra" }) / findOne({ kind: "screen_protector", ... })`

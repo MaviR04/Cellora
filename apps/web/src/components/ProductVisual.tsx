@@ -8,15 +8,17 @@ function hue(brand: string) {
   return h;
 }
 
-export function ProductVisual({ kind, brand, size = "md" }: { kind: ProductKind; brand: string; size?: "md" | "lg" }) {
+export function ProductVisual({ kind, brand, size = "md" }: { kind: ProductKind; brand: string; size?: "sm" | "md" | "lg" }) {
   const h = hue(brand);
   return (
     <div
       className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl"
       style={{ background: `linear-gradient(145deg, oklch(0.97 0.03 ${h}), oklch(0.88 0.07 ${h}))`, color: `oklch(0.42 0.12 ${h})` }}
     >
-      <KindIcon kind={kind} className={size === "lg" ? "size-40" : "size-20"} />
-      <span className="absolute bottom-2 left-3 text-xs font-semibold tracking-wide uppercase opacity-60">{brand}</span>
+      <KindIcon kind={kind} className={{ sm: "size-10", md: "size-20", lg: "size-40" }[size]} />
+      {size !== "sm" && (
+        <span className="absolute bottom-2 left-3 text-xs font-semibold tracking-wide uppercase opacity-60">{brand}</span>
+      )}
     </div>
   );
 }

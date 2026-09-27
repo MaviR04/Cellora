@@ -19,7 +19,8 @@
     "db:seed": "npm run seed -w scripts",
     "dev:web": "npm run dev -w apps/web",
     "db:shell": "npm run shell -w scripts --",
-    "redis:cli": "docker exec -it redis redis-cli"
+    "redis:cli": "docker exec -it redis redis-cli",
+    "db:seed-users": "npm run seed-users -w scripts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

@@ -7,7 +7,8 @@
     "bootstrap": "tsx db/bootstrap.ts",
     "evidence": "tsx evidence/cli.ts",
     "seed": "tsx db/seed-catalog.ts",
-    "shell": "tsx db/shell.ts"
+    "shell": "tsx db/shell.ts",
+    "seed-users": "tsx db/seed-users.ts"
   },
   "dependencies": {
     "playwright": "^1.63.0"

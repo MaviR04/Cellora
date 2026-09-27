@@ -1,6 +1,6 @@
 # Schema validation on the products collection
 
-- **Captured:** 2026-09-27T12:17:19.063Z
+- **Captured:** 2026-09-27T12:49:07.326Z
 - **Shows:** The $jsonSchema validator enforces only the shared base fields (kind, price, stock >= 0...). A new, kind-specific attribute is accepted without a migration, while invalid data is rejected by the database itself.
 - **Report section:** 7. Characteristics: schema-on-write vs flexible schema
 - **Command:** `db.products.insertOne(<probe document>)  (probes are deleted afterwards)`

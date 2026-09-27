@@ -10,7 +10,7 @@ Design docs: [use cases](docs/use-cases-and-roles.md) · [architecture](docs/arc
 - Docker Desktop (running)
 - Microsoft Edge (used for evidence screenshots)
 
-Screenshots in the `catalog` evidence set (and later sets) need the API and web app running.
+Evidence sets from `catalog` onwards need the API and web app running (screenshots, and API calls as the demo accounts).
 
 ## First-time setup
 
@@ -20,6 +20,7 @@ cp .env.example .env
 npm run infra:up        # 3-node MongoDB replica set + Redis; waits until healthy
 npm run db:bootstrap    # collections, validators, indexes, settings
 npm run db:seed         # 80 products (replaces the catalog)
+npm run db:seed-users   # demo accounts: admin/analyst/support/customer@cellora.test (password: SEED_USER_PASSWORD)
 ```
 
 Then run the API and the web app in two terminals:
@@ -36,6 +37,7 @@ npm run dev:web         # http://localhost:5173  (storefront)
 | `npm run infra:up` / `infra:down` | Start / stop the containers (data is kept) |
 | `npm run infra:reset` | Stop containers **and delete all data** |
 | `npm run db:seed` | Replace the product catalog with the seed data |
+| `npm run db:seed-users` | Create/reset the demo accounts (one per role) |
 | `npm run dev:api` | API on http://localhost:4000 (auto-reloads) |
 | `npm run dev:web` | Storefront on http://localhost:5173 (proxies `/api` to the API) |
 | `npm run dev:worker` | Background worker (stream consumer, rollups) |

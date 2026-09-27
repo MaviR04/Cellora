@@ -7,6 +7,7 @@ import { specRows } from "../lib/specs";
 import { ProductVisual } from "../components/ProductVisual";
 import { ProductCard } from "../components/ProductCard";
 import { NotFoundPage } from "./NotFoundPage";
+import { useAddToCart } from "../hooks/useCart";
 
 export function ProductPage() {
   const { slug } = useParams();
@@ -38,6 +39,7 @@ function ProductDetails({ product: p }: { product: ProductDetail }) {
   const [sku, setSku] = useState(() => (p.variants.find((v) => v.stock > 0) ?? p.variants[0]).sku);
   const variant = p.variants.find((v) => v.sku === sku)!;
   const specs = specRows(p);
+  const addToCart = useAddToCart();
 
   return (
     <div className="grid gap-10 lg:grid-cols-2">
@@ -81,13 +83,21 @@ function ProductDetails({ product: p }: { product: ProductDetail }) {
           </div>
         )}
 
-        <button
-          disabled
-          title="Cart arrives in Phase 3"
-          className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Add to cart
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            disabled={variant.stock === 0 || addToCart.isPending}
+            onClick={() => addToCart.mutate({ sku: variant.sku })}
+            className="flex-1 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {variant.stock === 0 ? "Out of stock" : addToCart.isPending ? "Adding…" : "Add to cart"}
+          </button>
+          {addToCart.isSuccess && addToCart.variables?.sku === variant.sku && (
+            <Link to="/cart" className="text-sm font-medium text-emerald-600 hover:underline">
+              Added ✓ View cart
+            </Link>
+          )}
+        </div>
+        {addToCart.error && <p className="text-sm text-rose-600">{addToCart.error.message}</p>}
 
         {specs.length > 0 && (
           <div>

@@ -147,7 +147,7 @@ Customers and staff share one collection, told apart by `role`.
 | Field | Type | Notes |
 |---|---|---|
 | `email` | string | Unique |
-| `passwordHash` | string | bcrypt/argon2 |
+| `passwordHash` | string | scrypt (Node built-in), per-user random salt: `scrypt$<salt>$<hash>` |
 | `name` | string | |
 | `role` | `customer` / `analyst` / `support` / `admin` | |
 | `addresses` | array (embedded, ≤ 5) | `{label, line1, line2?, city, postcode, country}` |

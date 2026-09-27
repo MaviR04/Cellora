@@ -48,3 +48,25 @@ export interface Facets {
 export interface RelatedGroups {
   groups: { title: string; items: ProductCard[] }[];
 }
+
+export interface CartLine {
+  sku: string;
+  qty: number;
+  productId: string;
+  slug: string;
+  name: string;
+  brand: string;
+  kind: ProductKind;
+  variantLabel: string;
+  unitPrice: number;
+  stock: number;
+  lineTotal: number;
+  /** false when the SKU no longer exists or stock has dropped below the quantity. */
+  available: boolean;
+}
+
+export interface Cart {
+  lines: CartLine[];
+  itemCount: number;
+  subtotal: number;
+}

@@ -1,6 +1,6 @@
 # Catalog query plans (explain executionStats)
 
-- **Captured:** 2026-09-27T12:17:19.088Z
+- **Captured:** 2026-09-27T12:49:07.352Z
 - **Shows:** Each storefront query is served by the index designed for it (IXSCAN / TEXT_MATCH), examining only the matching documents; the forced collection scan reads every document for the same result.
 - **Report section:** 5. Data model: indexing (ESR) / 9. Strengths
 - **Command:** `db.products.find(...).sort(...).explain('executionStats')  vs  .hint({ $natural: 1 })`

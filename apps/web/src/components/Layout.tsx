@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from "react-router";
 import { KIND_LABELS, PRODUCT_KINDS } from "@da2/shared";
+import { useLogout, useMe } from "../hooks/useAuth";
+import { useCart } from "../hooks/useCart";
 
 export const STORE_NAME = "Cellora";
 
@@ -14,11 +16,7 @@ export function Layout() {
             <span className="text-accent-600">.</span>
           </Link>
           <SearchBox />
-          <div className="ml-auto flex items-center gap-4 text-sm font-medium text-slate-600">
-            <span title="Cart arrives in Phase 3" className="rounded-full border border-slate-200 px-3 py-1.5">
-              Cart · 0
-            </span>
-          </div>
+          <HeaderActions />
         </div>
         <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 text-sm [scrollbar-width:none]">
           {PRODUCT_KINDS.map((k) => (
@@ -42,6 +40,37 @@ export function Layout() {
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
         {STORE_NAME} · Phones & accessories in Sri Lanka · Coursework demo: prices and specs are approximate
       </footer>
+    </div>
+  );
+}
+
+function HeaderActions() {
+  const { user, isStaff } = useMe();
+  const cart = useCart();
+  const logout = useLogout();
+  const navigate = useNavigate();
+  return (
+    <div className="ml-auto flex items-center gap-3 text-sm font-medium text-slate-600">
+      {isStaff && (
+        <Link to="/staff" className="rounded-full bg-accent-50 px-3 py-1.5 text-accent-700 hover:bg-accent-100">
+          Staff
+        </Link>
+      )}
+      {user ? (
+        <>
+          <span className="hidden sm:inline">Hi, {user.name.split(" ")[0]}</span>
+          <button onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/") })} className="hover:text-slate-900">
+            Log out
+          </button>
+        </>
+      ) : (
+        <Link to="/login" className="hover:text-slate-900">
+          Log in
+        </Link>
+      )}
+      <Link to="/cart" className="rounded-full border border-slate-200 px-3 py-1.5 hover:border-slate-400">
+        Cart · {cart.data?.itemCount ?? 0}
+      </Link>
     </div>
   );
 }

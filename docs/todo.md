@@ -76,13 +76,13 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 3: Auth, sessions & cart · Mon 28
 
-- [ ] `User` model; signup/login with password hashing
-- [ ] Redis sessions (`sess:*`, `user_sessions:*`), session cookie, logout
-- [ ] RBAC middleware (`customer` / `analyst` / `support` / `admin`)
-- [ ] Seed staff accounts (one per role)
-- [ ] Redis cart: guest `cart:{cartId}` + user `cart:u:{userId}`, 30-day TTL, merge on login
-- [ ] Cart UI (add / remove / change quantity; live prices from MongoDB)
-- [ ] 📸 Redis `HGETALL cart:*` + `TTL` output
+- [x] `User` model; signup/login with scrypt password hashing
+- [x] Redis sessions (`sess:*`, `user_sessions:*`), httpOnly session cookie, logout, admin "revoke all sessions" (+ audit_log)
+- [x] RBAC middleware (`customer` / `analyst` / `support` / `admin`)
+- [x] Seed demo accounts (one per role): `npm run db:seed-users`
+- [x] Redis cart: guest `cart:{cartId}` + user `cart:u:{userId}`, 30-day TTL, merge on login; anonymous ID linked to the user at login
+- [x] Cart UI (add / remove / change quantity; live prices from MongoDB); login/signup pages; staff placeholder
+- [x] 📸 `auth-cart` set: RBAC matrix, guest-cart merge, session revocation, user document, 4 screenshots
 
 ## Phase 4: Checkout & orders · Mon 28
 
