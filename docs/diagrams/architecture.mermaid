@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph Client[React - Vite]
+        SF[Storefront]
+        DB[Staff Dashboard<br/>Analyst / Support / Admin]
+    end
+
+    SF -- REST + batched events<br/>sendBeacon --> API
+    DB -- REST --> API
+
+    API[Node API<br/>Express]
+    API -- catalog, orders,<br/>users, notes --> M[(MongoDB<br/>replica set)]
+    API -- carts, sessions,<br/>cache, counters --> R[(Redis)]
+    API -- XADD events --> R
+
+    W[Ingest Worker<br/>Node] -- XREADGROUP --> R
+    W -- insertMany --> TS[(events<br/>time-series)]
+    RU[Rollup Job] -- aggregate + $merge --> M
+    TS --- M
