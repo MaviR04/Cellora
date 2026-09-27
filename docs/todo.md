@@ -21,7 +21,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] Architecture & technology justification (MongoDB + Redis; Cassandra/Neo4j/Elasticsearch rejected)
 - [x] Data model (schemas, event catalogue, indexes)
 - [x] Docker Desktop installed
-- [x] Decide store currency: rupees (confirm LKR vs INR before seeding prices)
+- [x] Decide store currency: Sri Lankan Rupees (LKR)
 - [x] Commit docs to git
 
 ---

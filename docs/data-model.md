@@ -22,7 +22,7 @@ This document defines the MongoDB collections, the Redis structures, the telemet
 2. **Embed when the data is read together, owned by one parent and bounded in size**; otherwise reference.
 3. **Denormalise deliberately.** Copy data when the copy is a *historical fact* (the price at the time of an order) or when it avoids a join on a hot path. Each copy is listed in §9 with how it stays correct.
 4. **Validate at the edge.** MongoDB does not enforce a schema by default, so validation is the application's job: Zod at the API for all writes, plus a MongoDB `$jsonSchema` validator on `products` for the base fields.
-5. **Money** is stored as **integers in minor units** (cents), e.g. `129900` = 1,299.00. This avoids floating-point rounding without converting to and from `Decimal128` in JavaScript. The currency is **rupees**, a single store-wide setting (minor unit = cents/paise).
+5. **Money** is stored as **integers in minor units** (cents), e.g. `39990000` = LKR 399,900.00. This avoids floating-point rounding without converting to and from `Decimal128` in JavaScript. The currency is **Sri Lankan Rupees (LKR)**, a single store-wide setting (minor unit = cents). Even large order totals stay far below JavaScript's safe-integer limit (2^53).
 
 ---
 
@@ -108,10 +108,10 @@ Compatibility is modelled three ways, each suited to its product type:
   "maxChargingW": 30,
   "port": "usb-c",
   "wirelessCharging": true,
-  "basePrice": 99900,
+  "basePrice": 39990000,
   "variants": [
-    { "sku": "IP16P-128-BLK", "label": "128GB Black Titanium", "attributes": { "storageGb": 128, "color": "Black Titanium" }, "price": 99900, "stock": 25 },
-    { "sku": "IP16P-256-BLK", "label": "256GB Black Titanium", "attributes": { "storageGb": 256, "color": "Black Titanium" }, "price": 109900, "stock": 18 }
+    { "sku": "IP16P-128-BLK", "label": "128GB Black Titanium", "attributes": { "storageGb": 128, "color": "Black Titanium" }, "price": 39990000, "stock": 25 },
+    { "sku": "IP16P-256-BLK", "label": "256GB Black Titanium", "attributes": { "storageGb": 256, "color": "Black Titanium" }, "price": 44990000, "stock": 18 }
   ],
   "isActive": true
 }
@@ -128,9 +128,9 @@ Compatibility is modelled three ways, each suited to its product type:
   "material": "polycarbonate/TPU",
   "style": "slim",
   "magsafe": true,
-  "basePrice": 2999,
+  "basePrice": 850000,
   "variants": [
-    { "sku": "SPG-UH-16P-CLR", "label": "Clear", "attributes": { "color": "Clear" }, "price": 2999, "stock": 120 }
+    { "sku": "SPG-UH-16P-CLR", "label": "Clear", "attributes": { "color": "Clear" }, "price": 850000, "stock": 120 }
   ],
   "isActive": true
 }
@@ -221,7 +221,7 @@ db.createCollection("events", {
   "source": "client",
   "page": { "path": "/p/iphone-16-pro" },
   "device": { "type": "mobile", "os": "Android", "browser": "Chrome" },
-  "props": { "productId": "66f…", "sku": "IP16P-256-BLK", "kind": "phone", "qty": 1, "unitPrice": 109900 },
+  "props": { "productId": "66f…", "sku": "IP16P-256-BLK", "kind": "phone", "qty": 1, "unitPrice": 44990000 },
   "receivedAt": { "$date": "2026-09-27T14:03:13.020Z" }
 }
 ```
@@ -285,7 +285,7 @@ Kept separate from `events` (append-only telemetry) and `session_summaries` (ove
 
 ### 4.9 `settings`
 
-Single document `{ _id: "global", eventRetentionDays: 90, rollupIntervalMin: 5, currency: "Rupees (code TBD: LKR or INR)", updatedBy, updatedAt }`. Changing `eventRetentionDays` makes the API run `collMod` on `events` (UC5).
+Single document `{ _id: "global", eventRetentionDays: 90, rollupIntervalMin: 5, currency: "LKR", updatedBy, updatedAt }`. Changing `eventRetentionDays` makes the API run `collMod` on `events` (UC5).
 
 ### 4.10 `audit_log`
 
