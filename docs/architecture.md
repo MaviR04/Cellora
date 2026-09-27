@@ -206,7 +206,7 @@ Full schemas, event catalogue and index rationale: [data-model.md](data-model.md
 
 **Time-series `metaField` trade-off.** `customerId`/`sessionId` are placed in `meta` so that:
 - per-session timelines (UC12) are grouped into the same buckets and are cheap to read, and
-- GDPR erasure (UC15) can `deleteMany` by `meta.customerId`. Time-series deletes were limited to `metaField` filters before MongoDB 7.0.
+- Right-to-erasure requests (UC15) can `deleteMany` by `meta.customerId`. Time-series deletes were limited to `metaField` filters before MongoDB 7.0.
 
 The cost: high-cardinality meta values produce many small buckets and weaker compression. This is documented as a deliberate trade-off.
 
@@ -255,7 +255,7 @@ The cost: high-cardinality meta values produce many small buckets and weaker com
 | UC5 Configure Data Purging | Admin sets retention days → saved in `settings` → API runs `collMod: "events", expireAfterSeconds: N` |
 | UC6 Manage Indexes & Pre-Aggregated Views | List indexes with size (`$collStats`) and `$indexStats` usage (zero-use indexes highlighted); last rollup run from `settings`; "rebuild" sets `rollups:rebuild` in Redis, which the worker picks up within 15 s. (`explain()` output lives in the evidence folder rather than an in-app viewer.) |
 | UC7 Monitor System Health | `replSetGetStatus` (member states, replication lag), `serverStatus` (connections, opcounters, transactions), `dbStats` (data vs compressed storage), Redis `INFO`, stream backlog via `XINFO GROUPS` (pending + lag) and the dead-letter stream length |
-| UC15 Erase Customer Data | Admin types the customer's email to confirm. `events.deleteMany` by `meta.customerId` **and** the linked `meta.anonymousId`s (so pre-signup browsing goes too), delete their `session_summaries` and `session_notes`, pseudonymise `orders` (kept for financial records: name, email, phone, street, postcode removed; items, totals and city kept), revoke Redis sessions and delete the cart, pseudonymise the `users` document **last**, write `audit_log` (counts only, no PII). No transaction: time-series writes can't run inside one and Redis isn't covered anyway, so every step is **idempotent** and the erasure can simply be re-run. Known gaps: events still in the Redis stream (until `MAXLEN` trims them), the oplog, and backups. |
+| UC15 Erase Customer Data (right to erasure, Sri Lanka PDPA; see [use cases §2.4](use-cases-and-roles.md#24-legal-context-sri-lankas-pdpa-not-gdpr)) | Admin types the customer's email to confirm. `events.deleteMany` by `meta.customerId` **and** the linked `meta.anonymousId`s (so pre-signup browsing goes too), delete their `session_summaries` and `session_notes`, pseudonymise `orders` (kept for financial records: name, email, phone, street, postcode removed; items, totals and city kept), revoke Redis sessions and delete the cart, pseudonymise the `users` document **last**, write `audit_log` (counts only, no PII). No transaction: time-series writes can't run inside one and Redis isn't covered anyway, so every step is **idempotent** and the erasure can simply be re-run. Known gaps: events still in the Redis stream (until `MAXLEN` trims them), the oplog, and backups. The live `active:{minute}` HyperLogLogs can't have a member removed, but they hold only hashed register values (no retrievable IDs) and expire after 2 hours. |
 
 ---
 

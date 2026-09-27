@@ -21,6 +21,17 @@ export interface ShotOptions {
 }
 
 export async function screenshot(meta: EvidenceMeta, opts: ShotOptions) {
+  // One retry: a page load can occasionally time out while the dev servers are busy
+  try {
+    await shoot(meta, opts);
+  } catch (err) {
+    console.warn(`  ! ${meta.name}: ${err instanceof Error ? err.message.split("\n")[0] : err}; retrying once`);
+    await shoot(meta, opts);
+  }
+  recordImage(meta);
+}
+
+async function shoot(meta: EvidenceMeta, opts: ShotOptions) {
   const context = await (await getBrowser()).newContext({
     viewport: opts.viewport ?? { width: 1440, height: 900 },
     deviceScaleFactor: 2,
@@ -31,7 +42,6 @@ export async function screenshot(meta: EvidenceMeta, opts: ShotOptions) {
   await opts.prepare?.(page);
   await page.screenshot({ path: imagePath(meta), fullPage: opts.fullPage ?? true });
   await context.close();
-  recordImage(meta);
 }
 
 export async function closeBrowser() {

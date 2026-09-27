@@ -145,17 +145,17 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] UC6 Index list + sizes + `$indexStats` usage; last rollup run; trigger rollup rebuild
 - [ ] ⭐ UC6 In-app explain viewer (use `mongosh` output as report evidence instead)
 - [x] UC7 Health: replica set members/lag, `serverStatus` metrics, `dbStats`, Redis `INFO`, stream backlog + dead letters
-- [x] UC15 Erase customer data (GDPR): events by customerId + linked anonymous IDs, summaries, notes, orders pseudonymised, Redis sessions/cart, user tombstone, idempotent, `audit_log`
+- [x] UC15 Erase customer data (right to erasure, Sri Lanka PDPA s.16): events by customerId + linked anonymous IDs, summaries, notes, orders pseudonymised, Redis sessions/cart, user tombstone, idempotent, `audit_log`
 - [x] ⭐ Audit log viewer
 - [x] Staff pages excluded from storefront telemetry; worker prunes stale stream consumers; `metrics_hourly` `{_id.hour}` index
-- [x] 📸 `dashboards` set: RBAC, analyst on a secondary, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation, role change, retention, rebuild, GDPR erasure, 14 screenshots
+- [x] 📸 `dashboards` set: RBAC, analyst on a secondary, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation, role change, retention, rebuild, right-to-erasure end to end, 14 screenshots
 
 ## Phase 9: Testing & evidence · Tue 29
 
 - [ ] Funnel correctness check on a small fixed dataset (script)
 - [ ] ⭐ Unit test suite: Zod event schemas, PII masking
 - [x] Scripted check: stock race (`npm run evidence -- checkout`)
-- [x] Scripted check: GDPR erasure (`npm run evidence -- dashboards` → `gdpr-erasure`)
+- [x] Scripted check: right-to-erasure request (`npm run evidence -- dashboards` → `right-to-erasure`)
 - [ ] ⭐ Automated integration tests (checkout, identity backfill)
 - [ ] Failover test: `docker stop` the primary → election → app recovers
 - [x] Measure and record: ingest throughput (`05-telemetry`), dashboard latency raw vs rollup vs cache (`07-rollups`, `08-dashboards/dashboard-timings`), index vs collection scan (`02-catalog`)
@@ -175,7 +175,7 @@ Draft in Markdown under `docs/report/`, export to **PDF**.
 - [ ] **7. Characteristics:** as demonstrated in the app: flexible schema, horizontal scale / replication, tunable consistency (write concerns, read preference), eventual consistency (rollups, cache), TTL, key-value speed
 - [ ] **8. Applications:** where NoSQL fits in industry (telemetry/IoT, catalogs, caching, sessions, real-time analytics) and where each appears in this app
 - [ ] **9. Strengths:** each backed by evidence from Phase 9 measurements
-- [ ] **10. Limitations:** each backed by evidence: no referential integrity, duplicate events (at-least-once), GDPR erasure across denormalised data, joins/ad-hoc analysis, transactions require replica set, storage cost of duplication, identity backfill race
+- [ ] **10. Limitations:** each backed by evidence: no referential integrity, duplicate events (at-least-once), right-to-erasure (PDPA) across denormalised data, joins/ad-hoc analysis, transactions require replica set, storage cost of duplication, identity backfill race
 - [ ] **11. Evaluation:** testing results; comparison with an equivalent relational design; what I'd change at larger scale (sharding key, Redis Cluster, when Cassandra becomes justified)
 - [ ] **12. Conclusion & future work**
 - [ ] References (consistent citation style) + appendices (setup guide, API list)

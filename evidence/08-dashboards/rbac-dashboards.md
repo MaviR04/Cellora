@@ -1,6 +1,6 @@
 # Dashboard API access by role
 
-- **Captured:** 2026-09-27T19:33:15.124Z
+- **Captured:** 2026-09-27T20:06:36.686Z
 - **Shows:** Analyst endpoints admit analyst+admin, support endpoints support+admin, admin endpoints admin only. 401 = not logged in, 403 = wrong role. Enforced by requireRole() on the API, not just by hiding links.
 - **Report section:** 6. Implementation: role-based access (UC4)
 - **Command:** `GET each endpoint as each demo account`

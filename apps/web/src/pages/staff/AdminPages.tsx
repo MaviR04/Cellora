@@ -1,4 +1,4 @@
-// Administrator dashboards: users & access (UC4), GDPR erasure (UC15), retention and rollups
+// Administrator dashboards: users & access (UC4), right-to-erasure requests (UC15), retention and rollups
 // (UC5, UC6), indexes (UC6), system health (UC7) and the audit trail.
 import { Fragment, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -178,6 +178,7 @@ function EraseDialog({ user, onClose, onDone }: { user: AdminUser; onClose: () =
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Right to erasure · PDPA No. 9 of 2022, s.16</p>
         <h2 className="text-xl font-extrabold text-rose-700">Erase {user.name}'s personal data?</h2>
         <p className="mt-2 text-sm text-slate-600">This can't be undone. It will:</p>
         <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">
@@ -359,14 +360,20 @@ export function HealthPage() {
   if (!h) return <Loading h="h-96" />;
   const primary = h.mongo.members.find((m) => m.state === "PRIMARY");
   const group = h.stream.groups[0];
-  const maxLag = Math.max(...h.mongo.members.map((m) => m.lagSec));
+  const maxLag = Math.max(0, ...h.mongo.members.map((m) => m.lagSec ?? 0));
+  const down = h.mongo.members.filter((m) => m.health !== 1).length;
 
   return (
     <>
       <PageHeader title="System health" subtitle="MongoDB replica set, Redis and the telemetry pipeline. Refreshes every 10 seconds." actions={<SourceNote source="replSetGetStatus · serverStatus · INFO · XINFO" at={h.checkedAt} />} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Primary" value={<span className="text-base">{primary?.name ?? "none!"}</span>} tone={primary ? "good" : "bad"} hint={`replica set ${h.mongo.setName}`} />
-        <Stat label="Max replication lag" value={`${maxLag.toFixed(0)} s`} tone={maxLag > 10 ? "warn" : "good"} />
+        <Stat
+          label="Max replication lag"
+          value={`${maxLag.toFixed(0)} s`}
+          tone={down ? "bad" : maxLag > 10 ? "warn" : "good"}
+          hint={down ? `${down} member${down > 1 ? "s" : ""} unreachable` : `${h.mongo.members.length} members healthy`}
+        />
         <Stat label="Stream backlog" value={fmtNum((group?.lag ?? 0) + (group?.pending ?? 0))} hint={`${group?.pending ?? 0} pending · ${group?.lag ?? "?"} unread`} tone={(group?.lag ?? 0) > 1000 ? "warn" : "good"} />
         <Stat label="Dead letters" value={fmtNum(h.stream.deadLetters)} tone={h.stream.deadLetters ? "bad" : "good"} hint="unparseable stream entries" />
       </div>
@@ -382,7 +389,7 @@ export function HealthPage() {
                 <Badge tone={m.state === "PRIMARY" ? "green" : m.state === "SECONDARY" ? "blue" : "red"}>{m.state}</Badge>
               </td>
               <td>{m.health === 1 ? "OK" : <Badge tone="red">down</Badge>}</td>
-              <td className="tabular-nums">{m.state === "PRIMARY" ? "—" : `${m.lagSec.toFixed(0)} s`}</td>
+              <td className="tabular-nums">{m.state === "PRIMARY" || m.lagSec === null ? "—" : `${m.lagSec.toFixed(0)} s`}</td>
               <td className="tabular-nums">{m.pingMs === null ? "—" : `${m.pingMs} ms`}</td>
               <td>{fmtDuration(m.uptimeSec)}</td>
             </tr>

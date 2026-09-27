@@ -68,8 +68,26 @@ Handles customer complaints ("my checkout failed", "I was charged twice") by loo
 | Change | Detail |
 |---|---|
 | **Rename UC6** "Optimize System Speed" → **"Manage Indexes & Pre-Aggregated Views"** | The original name is vague. The new name states what the admin actually does and can be demonstrated (index creation, `explain()` plans, materialised rollup collections). |
-| **Add UC15: Erase Customer Data (GDPR request)** | Right-to-erasure for a single customer. Removing one user's data from denormalised, duplicated records is harder in NoSQL than in a normalised relational schema, which feeds the report's *limitations* section. |
+| **Add UC15: Erase Customer Data (right-to-erasure request)** | Right to erasure for a single customer (approved as a "GDPR request"; reframed under Sri Lanka's PDPA, see §2.4). Removing one user's data from denormalised, duplicated records is harder in NoSQL than in a normalised relational schema, which feeds the report's *limitations* section. |
 | Cosmetic | The "Monitor System Health" note uses a different font from the other notes. Make it match. |
+
+### 2.4 Legal context: Sri Lanka's PDPA, not GDPR
+
+UC15 was approved as a "GDPR request". Cellora sells only in Sri Lanka (LKR prices, local delivery), so the law that applies is Sri Lanka's **Personal Data Protection Act, No. 9 of 2022 (PDPA)**. The EU's GDPR reaches non-EU businesses only when they offer goods or services to people in the EU or monitor their behaviour there (GDPR Art. 3(2)); Cellora does neither. The PDPA was modelled closely on GDPR, so the concepts map directly: lawful processing, data minimisation, retention limits, security, and data subject rights, including **erasure (PDPA s.16)**. If Cellora ever sold to EU customers, GDPR would apply as well, and the same erasure mechanism would serve both.
+
+**Commencement status (checked 28 Sep 2026):**
+
+| When | What |
+|---|---|
+| March 2022 | PDPA No. 9 of 2022 enacted |
+| 2023 | Only the parts setting up the regulator (the Data Protection Authority) and administrative/interpretation provisions brought into operation by Gazette orders |
+| 31 Oct 2025 | PDPA (Amendment) Act No. 22 of 2025 published: removed the fixed commencement timelines; remaining parts start on dates the Minister appoints by Gazette order |
+| 22 Jul 2026 | Gazette Extraordinary No. 2498/16: **Part I (processing of personal data) and Part III (controllers and processors) operational from 1 January 2027** |
+| Not yet appointed | **Part II (rights of data subjects: access, correction, erasure, withdrawal of consent, objection) and Part VII (penalties)** |
+
+**What that means for Cellora:** the processing obligations bind it from 1 Jan 2027, but the enforceable right to erasure (Part II) has no start date yet. UC15 therefore implements the right **ahead of commencement**, as readiness and privacy by design. The same design also serves the Part I obligations: retention limits (UC5, the events TTL), data minimisation (PII masking for Support), and accountability (`audit_log`). Keeping orders after erasure (pseudonymised) rests on the legal duty to keep financial records.
+
+*Sources: Data Protection Authority of Sri Lanka (dpa.gov.lk); Parliament of Sri Lanka, Acts No. 9 of 2022 and No. 22 of 2025; law-firm and industry summaries of Gazette No. 2498/16. Re-check dpa.gov.lk before submission, since further commencement orders are expected.*
 
 ---
 
@@ -100,7 +118,7 @@ flowchart LR
         UC5([Configure Data Purging])
         UC6([Manage Indexes & Pre-Aggregated Views])
         UC7([Monitor System Health])
-        UC15([Erase Customer Data - GDPR])
+        UC15([Erase Customer Data - PDPA request])
     end
 
     Customer --> UC8 & UC9 & UC10 & UC11

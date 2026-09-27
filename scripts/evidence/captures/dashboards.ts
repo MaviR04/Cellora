@@ -30,7 +30,7 @@ const loginAs = (email: string) => async (context: BrowserContext) => {
 const settle = async (page: import("playwright").Page) => void (await page.waitForTimeout(1200));
 
 export const dashboards: EvidenceSet = {
-  description: "Staff dashboards: RBAC, analyst on a secondary, HyperLogLog, exports, PII masking, escalations, role change, retention, rollup rebuild, GDPR erasure, screenshots",
+  description: "Staff dashboards: RBAC, analyst on a secondary, HyperLogLog, exports, PII masking, escalations, role change, retention, rollup rebuild, right-to-erasure request, screenshots",
   async run() {
     if (!(await reachable(`${API}/health`)) || !(await reachable(WEB))) throw new Error("API and web app must be running (and the worker)");
     const db = (await connectMongo()).db as unknown as Db;
@@ -124,7 +124,7 @@ export const dashboards: EvidenceSet = {
           phase,
           name: "live-hyperloglog",
           title: "Live 'active sessions': HyperLogLog union vs summing minutes vs exact",
-          shows: "PFCOUNT over several per-minute HyperLogLogs returns the size of their UNION, so a session active in several minutes counts once. Summing per-minute counts over-counts. Each HLL is at most ~12 KB however many sessions it holds; the estimate is within ~1% of the exact distinct count from MongoDB.",
+          shows: "PFCOUNT over several per-minute HyperLogLogs returns the size of their UNION, so a session active in several minutes counts once. Summing per-minute counts over-counts. Each HLL is at most ~12 KB however many sessions it holds; the estimate matches the exact distinct count from MongoDB. (Members can't be removed from an HLL: sessions erased in the window, e.g. by the erasure test of a run less than 5 minutes earlier, stay counted until the key expires.)",
           reportSection: "7. Characteristics: Redis data structures (UC1)",
         },
         {
@@ -353,9 +353,9 @@ export const dashboards: EvidenceSet = {
       );
     }
 
-    // 11. GDPR erasure (UC15), end to end on a throwaway customer ------------------------------------
+    // 11. Right to erasure (UC15, Sri Lanka PDPA s.16), end to end on a throwaway customer ------------------------------------
     {
-      const email = `gdpr-test-${Date.now()}@example.com`;
+      const email = `erasure-test-${Date.now()}@example.com`;
       const anonymousId = randomUUID();
       const s1 = randomUUID();
       const s2 = randomUUID();
@@ -367,11 +367,11 @@ export const dashboards: EvidenceSet = {
       const browser1 = new Client();
       await browser1.post("/events", { anonymousId, sessionId: s1, events: [ev("page_view", {}), ev("product_view", { productId: String(product._id), kind: "phone", basePrice: product.basePrice }, "/p/pixel-9")] });
       const shopper = new Client({ "X-Anonymous-Id": anonymousId, "X-Session-Id": s2 });
-      const signup = await shopper.post("/auth/signup", { name: "Gdpr Test Customer", email, password: randomBytes(12).toString("base64url") });
+      const signup = await shopper.post("/auth/signup", { name: "Erasure Test Customer", email, password: randomBytes(12).toString("base64url") });
       const userId = signup.body.user.id;
       await shopper.post("/events", { anonymousId, sessionId: s2, events: [ev("identify", { customerId: userId, via: "signup" }), ev("page_view", {}, "/checkout")] });
       await shopper.post("/cart/items", { sku: variant.sku, qty: 1 });
-      const order = await shopper.post("/checkout", { contact: { name: "Gdpr Test Customer", email, phone: "+94 77 123 4567" }, address: { line1: "7 Temple Road", line2: "Apt 3", city: "Kandy", postcode: "20000" }, payment: "cod" });
+      const order = await shopper.post("/checkout", { contact: { name: "Erasure Test Customer", email, phone: "+94 77 123 4567" }, address: { line1: "7 Temple Road", line2: "Apt 3", city: "Kandy", postcode: "20000" }, payment: "cod" });
       await shopper.post("/cart/items", { sku: variant.sku, qty: 1 }); // a live cart in Redis
       await support.post(`/support/sessions/${s2}/notes`, { body: "Customer asked about delivery times.", flagged: false });
       await waitFor(() => events.findOne({ "meta.sessionId": s2, type: "order_placed" }));
@@ -409,10 +409,10 @@ export const dashboards: EvidenceSet = {
       recordText(
         {
           phase,
-          name: "gdpr-erasure",
-          title: "Right to erasure, end to end (UC15)",
+          name: "right-to-erasure",
+          title: "Right-to-erasure request, end to end (UC15, Sri Lanka PDPA s.16)",
           shows: "A throwaway customer browses anonymously, signs up, orders, and gets a support note. Erasure deletes their events (by the time-series metaField: customerId and linked anonymous ids, including the pre-signup session), session summaries and notes, revokes sessions and deletes the Redis cart, pseudonymises the order (kept for accounting) and the user record. It is idempotent: running it again changes nothing. The audit entry records the scope but no personal data.",
-          reportSection: "9. Limitations & ethics: GDPR; 7. time-series deletes by metaField",
+          reportSection: "9. Limitations & ethics: data protection (PDPA); 7. time-series deletes by metaField",
         },
         {
           command: `POST /api/admin/customers/${userId}/erase {confirmEmail} as admin`,
@@ -442,6 +442,9 @@ export const dashboards: EvidenceSet = {
           ].join("\n"),
         },
       );
+      // The tombstone has served as evidence; remove the throwaway account so repeated runs don't
+      // fill the admin users list (its pseudonymised order stays, like any erased customer's).
+      await db.collection("users").deleteOne({ _id: oid, status: "erased" });
     }
 
     // 12. Screenshots ---------------------------------------------------------------------------
@@ -468,8 +471,8 @@ export const dashboards: EvidenceSet = {
       [
         "admin-erase-dialog",
         "Admin: erasure confirmation (UC15)",
-        "The admin must type the customer's email to confirm; the dialog lists exactly what is deleted and what is kept.",
-        "6. Implementation: GDPR erasure (UC15)",
+        "A right-to-erasure request under Sri Lanka's PDPA (s.16). The admin must type the customer's email to confirm; the dialog lists exactly what is deleted and what is kept.",
+        "6. Implementation: right to erasure (UC15)",
         "/staff/admin/users",
         AD,
         async (p) => {

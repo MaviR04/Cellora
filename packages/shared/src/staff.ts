@@ -194,7 +194,8 @@ export interface CollectionIndexes {
 export interface HealthReport {
   mongo: {
     setName: string;
-    members: { name: string; state: string; health: number; uptimeSec: number; optimeDate: string; lagSec: number; pingMs: number | null; self: boolean }[];
+    /** lagSec is null for the primary's view of an unreachable member. */
+    members: { name: string; state: string; health: number; uptimeSec: number; optimeDate: string; lagSec: number | null; pingMs: number | null; self: boolean }[];
     server: {
       version: string;
       uptimeSec: number;

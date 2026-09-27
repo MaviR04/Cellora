@@ -474,7 +474,7 @@ browser tracker ──POST /api/events──▶ API ──XADD──▶ Redis St
 
 **Time-series collection, in use.**
 - Events with the same `meta` (same browser/session) are stored together in compressed **buckets**, so a session's timeline is cheap to read (UC12).
-- Deletes by `meta` field are allowed. The benchmark cleans up with `deleteMany({"meta.anonymousId": …})`, and GDPR erasure (UC15) will use the same mechanism.
+- Deletes by `meta` field are allowed. The benchmark cleans up with `deleteMany({"meta.anonymousId": …})`, and right-to-erasure requests (UC15) will use the same mechanism.
 
 ### Read these files
 1. [apps/web/src/lib/tracker.ts](../apps/web/src/lib/tracker.ts): queue, batch, flush, sendBeacon.
@@ -550,7 +550,7 @@ db.events.stats().timeseries          // buckets, bucket count, compression deta
 
 **What the data revealed** (evidence you can quote):
 - **Time-series storage:** buckets hold on average only **7.4 events**, so it's just ~22% smaller on disk than a regular collection (9.4 MB vs 12.1 MB). The indexes are *larger*: four secondary indexes vs `_id` only.
-  - That's the **metaField cardinality trade-off**: `sessionId` in `meta` means every session gets its own buckets. You'd get far better compression with low-cardinality meta (e.g. `type`), but then session timelines and GDPR deletes by customer would be expensive.
+  - That's the **metaField cardinality trade-off**: `sessionId` in `meta` means every session gets its own buckets. You'd get far better compression with low-cardinality meta (e.g. `type`), but then session timelines and erasure deletes by customer would be expensive.
   - It's a design decision with a measured cost. Excellent limitations material.
 - **Text search limitation:** "iphone 17" (a phone the store doesn't sell) returns **25 results**, because `$text` matches *any* word and "iphone" alone matches every iPhone. There's no phrase matching or typo tolerance, which is where a dedicated search engine would come in.
 - **Raw-aggregation baseline:** funnel counts computed by scanning all 99k events take a median of **~106 ms**, and that grows linearly as data grows. Phase 7 will beat this with rollups and a cache.
@@ -727,7 +727,12 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 
 **`$indexStats` (UC6).** It shows how many times each index was used since the server started, on that node. Zero-use indexes are candidates for removal, since each index costs RAM and slows writes. Two caveats: counts reset on restart and are per node.
 
-**GDPR erasure (UC15), the most "NoSQL-specific" admin feature:**
+**Which law? Sri Lanka's PDPA, not GDPR.** Cellora only sells in Sri Lanka, so the relevant law is the **Personal Data Protection Act, No. 9 of 2022**. GDPR only reaches non-EU shops that target or monitor people in the EU. The PDPA copies GDPR's ideas, so the right to erasure is **s.16**. Know the status (details and sources in [use-cases-and-roles.md §2.4](use-cases-and-roles.md#24-legal-context-sri-lankas-pdpa-not-gdpr)):
+- Processing obligations (Parts I and III) start on **1 January 2027** (Gazette No. 2498/16, July 2026).
+- Data subject rights, including erasure (Part II), and penalties (Part VII) have **no start date yet**.
+- So Cellora implements erasure **ahead of commencement**: readiness and privacy by design.
+
+**Right-to-erasure request (UC15), the most "NoSQL-specific" admin feature:**
 1. Delete events by the time-series **metaField**: `meta.customerId` **and** every `meta.anonymousId` linked at login. That also catches browsing from *before* they signed up.
 2. Delete their `session_summaries` and `session_notes`.
 3. **Pseudonymise** orders (keep items and totals for accounting, which is a lawful basis; strip name, email, phone, street, postcode).
@@ -736,7 +741,7 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 6. Write `audit_log` with **counts only**, no PII.
 - **No transaction?** Correct. Writes to time-series collections can't run inside a multi-document transaction, and Redis isn't part of MongoDB transactions anyway. Instead every step is **idempotent**. The evidence runs it twice: the second run touches nothing.
 - **Denormalisation makes erasure harder:** personal data was copied into orders (snapshots), events (meta), summaries and notes. That's a real limitation to discuss in the report.
-- **Known gaps:** copies in the Redis stream until trimmed, the oplog, and backups.
+- **Known gaps:** copies in the Redis stream until trimmed, the oplog, and backups. Also, an erased session stays counted in the live HyperLogLogs: you **can't remove a member from an HLL**. That is acceptable because an HLL stores only hashed register values (no ID can be read back) and the keys expire after 2 hours.
 
 **Small but good details:**
 - Staff pages don't emit storefront `page_view` events, so staff browsing doesn't skew customer analytics.
@@ -769,7 +774,8 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 - **"Why do analyst queries go to a secondary but support queries to the primary?"** Load isolation and read-only safety vs read-your-writes freshness. Consistency is chosen per use case.
 - **"How do you count active users?"** HyperLogLog per minute; `PFCOUNT` over 5 keys = union; ~0.8% error in tiny memory; exact count matched (57 = 57).
 - **"How is PII protected?"** Masked in the API response for support; analysts only ever see aggregates; the audit log for erasure holds no PII; erasure covers anonymous pre-signup data too.
-- **"Walk me through GDPR erasure. Why no transaction?"** The steps above; time-series and Redis can't join a transaction; idempotent steps with the user tombstone last; evidence shows re-running is a no-op.
+- **"Why PDPA and not GDPR?"** The shop only serves Sri Lanka; GDPR applies to non-EU businesses only if they target or monitor people in the EU. The PDPA is Sri Lanka's GDPR-style law: erasure is s.16. Its processing duties start 1 Jan 2027; the rights in Part II await a Gazette date, so we built erasure in advance. If Cellora sold to the EU, GDPR would apply too and the same mechanism covers it.
+- **"Walk me through the erasure. Why no transaction?"** The steps above; time-series and Redis can't join a transaction; idempotent steps with the user tombstone last; evidence shows re-running is a no-op.
 - **"What does denormalisation cost you here?"** Erasure has to find copies in four collections and Redis; with SQL + foreign keys you might cascade-delete from one place.
 - **"If I change a user's role, when does it take effect?"** Immediately. Their Redis sessions are revoked because the role is cached there.
 - **"How does the admin change data retention?"** `collMod expireAfterSeconds` on the time-series collection; MongoDB expires buckets itself.
@@ -778,8 +784,8 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 
 ### Evidence
 `evidence/08-dashboards/`:
-- **Text:** RBAC matrix, analyst on a secondary + write rejected, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation flow, role change → sessions revoked, retention `collMod`, rollup rebuild, GDPR erasure end to end.
+- **Text:** RBAC matrix, analyst on a secondary + write rejected, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation flow, role change → sessions revoked, retention `collMod`, rollup rebuild, right-to-erasure end to end.
 - **Screenshots:** 14, one per dashboard page plus the erase dialog.
 
 ### One-minute summary
-> Three role-based dashboards sit on top of the pipeline. Analysts get live activity from Redis HyperLogLogs and counters, plus funnels and trends from the rollups, all on a read-only connection to a secondary, behind a Redis cache, with CSV/JSON export. Support finds a customer by email, order number or browser ID, and sees their orders, live Redis cart and every session. That includes anonymous ones from before they signed up, linked by identity stitching, with a to-the-second event timeline. Support can annotate and escalate, and contact details are masked. Admins manage roles (a change revokes sessions immediately), set retention (`collMod` on the time-series TTL), inspect index usage, trigger rollup rebuilds, monitor the replica set, Redis and the stream, and erase a customer. Erasure is an idempotent, audited clean-up across four collections and Redis, because time-series writes can't be in a transaction and the data is deliberately denormalised.
+> Three role-based dashboards sit on top of the pipeline. Analysts get live activity from Redis HyperLogLogs and counters, plus funnels and trends from the rollups, all on a read-only connection to a secondary, behind a Redis cache, with CSV/JSON export. Support finds a customer by email, order number or browser ID, and sees their orders, live Redis cart and every session. That includes anonymous ones from before they signed up, linked by identity stitching, with a to-the-second event timeline. Support can annotate and escalate, and contact details are masked. Admins manage roles (a change revokes sessions immediately), set retention (`collMod` on the time-series TTL), inspect index usage, trigger rollup rebuilds, monitor the replica set, Redis and the stream, and erase a customer. Erasure is an idempotent, audited clean-up across four collections and Redis (the PDPA right to erasure, built ahead of its commencement), because time-series writes can't be in a transaction and the data is deliberately denormalised.

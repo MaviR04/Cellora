@@ -7,7 +7,7 @@
 //   GET   /admin/indexes                     indexes, sizes and $indexStats usage        (UC6)
 //   POST  /admin/rollups/rebuild             ask the worker for a full rollup rebuild    (UC6)
 //   GET   /admin/health                      replica set, server, Redis, stream backlog  (UC7)
-//   POST  /admin/customers/:id/erase         GDPR right to erasure                       (UC15)
+//   POST  /admin/customers/:id/erase         right to erasure (Sri Lanka PDPA s.16)      (UC15)
 //   GET   /admin/audit                       the audit trail
 import { Router } from "express";
 import type { Redis } from "ioredis";
@@ -244,7 +244,7 @@ export function adminRouter(redis: Redis) {
           uptimeSec: m.uptime,
           optimeDate: m.optimeDate,
           // Replication lag: how far this member's last applied write trails the primary's
-          lagSec: primary ? Math.max(0, (primary.optimeDate - m.optimeDate) / 1000) : 0,
+          lagSec: primary && m.health === 1 ? Math.max(0, (primary.optimeDate - m.optimeDate) / 1000) : null,
           pingMs: m.pingMs ?? null,
           self: !!m.self,
         })),
@@ -282,7 +282,9 @@ export function adminRouter(redis: Redis) {
     } satisfies HealthReport);
   });
 
-  // ---- UC15: GDPR right to erasure -------------------------------------------------------------
+  // ---- UC15: right to erasure ------------------------------------------------------------------
+  // Sri Lanka's Personal Data Protection Act No. 9 of 2022, s.16 (docs/use-cases-and-roles.md
+  // §2.4: the rights in Part II await a commencement order, so this is built ahead of time).
   router.post("/admin/customers/:id/erase", async (req, res) => {
     const id = String(req.params.id);
     if (!isValidObjectId(id)) throw new HttpError(400, "Invalid user id");

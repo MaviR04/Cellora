@@ -1,6 +1,6 @@
 # Report export as CSV and JSON (UC3)
 
-- **Captured:** 2026-09-27T19:33:15.455Z
+- **Captured:** 2026-09-27T20:06:36.996Z
 - **Shows:** GET /api/analytics/export returns any report as a downloadable file (Content-Disposition: attachment). It uses the same cached computations as the dashboards.
 - **Report section:** 6. Implementation: export (UC3)
 - **Command:** `GET /api/analytics/export?report=funnel|top&format=csv · report=trends&format=json`
@@ -17,10 +17,10 @@ day,product_view,add_to_cart,checkout_started,order_placed
 
 # top CSV   attachment; filename="cellora-top-2026-09-15-to-2026-09-28.csv"
 section,name,kind,views,add_to_cart,cart_rate,count,avg_results
-product,Pixel 9,phone,629,34,0.054,,
-product,Galaxy S25 Ultra,phone,619,37,0.060,,
-product,iPhone 16 Pro,phone,617,38,0.062,,
-product,iPhone 16,phone,611,38,0.062,,
+product,Pixel 9,phone,650,34,0.052,,
+product,Galaxy S25 Ultra,phone,646,37,0.057,,
+product,iPhone 16 Pro,phone,637,38,0.060,,
+product,iPhone 16,phone,627,39,0.062,,
 …
 
 # trends JSON   attachment; filename="cellora-trends-2026-09-15-to-2026-09-28.json"

@@ -152,7 +152,7 @@ Customers and staff share one collection, told apart by `role`.
 | `role` | `customer` / `analyst` / `support` / `admin` | |
 | `addresses` | array (embedded, ≤ 5) | `{label, line1, line2?, city, postcode, country}` |
 | `anonymousIds` | string[] (capped at 20 with `$push` + `$slice`) | Anonymous browser IDs linked to this account (§6) |
-| `status` | `active` / `disabled` / `erased` | `erased` after GDPR request (UC15) |
+| `status` | `active` / `disabled` / `erased` | `erased` after a right-to-erasure request (UC15, PDPA) |
 | `createdAt`, `lastLoginAt` | Date | |
 
 ---
@@ -231,7 +231,7 @@ db.createCollection("events", {
 | Benefit | Cost |
 |---|---|
 | A session's events share buckets, so session timelines (UC12) are cheap to read | Many distinct meta values mean many small buckets and less compression |
-| Deletes and updates by `meta` are supported on time-series collections, which enables GDPR erasure (UC15) and identity backfill (§6) The `metaField` choice is fixed at creation; changing it means recreating the collection and re-inserting the data |
+| Deletes and updates by `meta` are supported on time-series collections, which enables right-to-erasure requests (UC15) and identity backfill (§6) The `metaField` choice is fixed at creation; changing it means recreating the collection and re-inserting the data |
 
 ---
 
@@ -396,7 +396,7 @@ Compound indexes follow the **ESR rule**: **E**quality fields first, then **S**o
 | Index | Serves |
 |---|---|
 | `{"meta.sessionId": 1, ts: 1}` | Session timeline (UC12) |
-| `{"meta.customerId": 1, ts: -1}` | Customer activity, GDPR erasure (UC12, UC15) |
+| `{"meta.customerId": 1, ts: -1}` | Customer activity, erasure requests (UC12, UC15) |
 | `{"meta.anonymousId": 1}` | Identity backfill (§6) |
 | `{type: 1, ts: 1}` | Rollups and live queries filtered by event type in a time window (UC1, UC2) |
 

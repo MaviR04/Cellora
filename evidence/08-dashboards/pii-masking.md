@@ -1,6 +1,6 @@
 # PII masking for the Support role
 
-- **Captured:** 2026-09-27T19:33:15.473Z
+- **Captured:** 2026-09-27T20:06:37.016Z
 - **Shows:** Support agents get masked email, phone and street address (city kept for delivery questions); Admin sees the full record. Masking is applied in the API response, so unmasked data never reaches a support agent's browser.
 - **Report section:** 9. Limitations & ethics: privacy / data minimisation
 - **Command:** `GET /api/support/orders/ORD-20260928-0040 as support, then as admin; GET /api/support/search?q=customer@ as support`

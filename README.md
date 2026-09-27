@@ -39,7 +39,7 @@ Log in at http://localhost:5173/login with a demo account, then click **Staff** 
 |---|---|
 | `analyst@cellora.test` | Live activity, purchase funnel, trends & top lists, CSV/JSON export |
 | `support@cellora.test` | Find a customer, customer 360, session timeline + notes, failed checkouts, escalations (contact details masked) |
-| `admin@cellora.test` | Everything above, plus users & access (roles, revoke, GDPR erasure), data & indexes (retention, rollups), system health, audit log |
+| `admin@cellora.test` | Everything above, plus users & access (roles, revoke, right-to-erasure requests), data & indexes (retention, rollups), system health, audit log |
 
 For a lively Live-activity page, run `npm run sim:live` in a fourth terminal.
 
