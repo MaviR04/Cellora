@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate, useSearchParams } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { KIND_LABELS, PRODUCT_KINDS } from "@da2/shared";
 import { useLogout, useMe } from "../hooks/useAuth";
 import { useCart } from "../hooks/useCart";
+import { useTrackView } from "../hooks/useTrack";
 
 export const STORE_NAME = "Cellora";
 
 export function Layout() {
+  const location = useLocation();
+  // One page_view per navigation (UC1: navigation paths)
+  useTrackView("page_view", { title: document.title }, location.pathname + location.search);
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">

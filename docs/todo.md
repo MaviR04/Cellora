@@ -94,16 +94,16 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 5: Telemetry pipeline · Mon 28
 
-- [ ] Frontend tracker: `anonymousId` (localStorage), `sessionId` (30-min inactivity), batching, `sendBeacon` on page hide
-- [ ] Instrument storefront: `page_view`, `category_view`, `product_view`, `search`, cart events, `checkout_started`, `payment_submitted`, `identify`
-- [ ] `X-Session-Id` / `X-Anonymous-Id` headers on all API calls
-- [ ] `POST /api/events`: Zod validation, device parsing, `receivedAt`, `XADD events:ingest MAXLEN ~`
-- [ ] Server-side events: `order_placed`, `checkout_failed`
-- [ ] Worker: consumer group, `XREADGROUP` → `insertMany({ordered:false})` → counters (`PFADD`, `INCR`) → `XACK`
-- [ ] Worker: `XAUTOCLAIM` recovery of pending entries
-- [ ] Worker: identity backfill on `identify` (`updateMany` on `meta`)
-- [ ] ⭐ Worker: best-effort `eventId` dedupe via Redis set
-- [ ] 📸 A raw event document; `XINFO GROUPS` / `XPENDING`; events/sec ingest throughput measurement
+- [x] Frontend tracker: `anonymousId` (localStorage), `sessionId` (30-min inactivity), batching, `sendBeacon` on page hide
+- [x] Instrument storefront: `page_view`, `category_view`, `product_view`, `search`, cart events, `checkout_started`, `payment_submitted`, `identify`
+- [x] `X-Session-Id` / `X-Anonymous-Id` headers on all API calls (identity in the body for `/api/events`, because `sendBeacon` can't set headers)
+- [x] `POST /api/events`: per-event Zod validation, device parsing, `receivedAt`, pipelined `XADD events:ingest MAXLEN ~`
+- [x] Server-side events: `order_placed`, `checkout_failed`
+- [x] Worker: consumer group, `XREADGROUP` → `insertMany({ordered:false})` → counters (`PFADD`, `INCR`) → `XACK`; dead-letter stream for unparseable entries
+- [x] Worker: `XAUTOCLAIM` recovery of pending entries
+- [x] Worker: identity backfill on `identify` (`updateMany` on `meta`)
+- [x] ⭐ Worker: best-effort `eventId` dedupe (`seen:{eventId}` keys, 1 h TTL, written after a successful insert)
+- [x] 📸 `telemetry` set: real browser journey → session timeline, identity stitching, event document, throughput (20k events), stream/consumer/counters
 
 ## Phase 6: Traffic simulator · Mon 28
 

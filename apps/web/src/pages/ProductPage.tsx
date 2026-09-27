@@ -8,11 +8,15 @@ import { ProductVisual } from "../components/ProductVisual";
 import { ProductCard } from "../components/ProductCard";
 import { NotFoundPage } from "./NotFoundPage";
 import { useAddToCart } from "../hooks/useCart";
+import { useTrackView } from "../hooks/useTrack";
+import { track } from "../lib/tracker";
 
 export function ProductPage() {
   const { slug } = useParams();
   const product = useQuery({ queryKey: ["product", slug], queryFn: () => api<ProductDetail>(`/products/${slug}`) });
   const related = useQuery({ queryKey: ["related", slug], queryFn: () => api<RelatedGroups>(`/products/${slug}/related`) });
+  const p = product.data;
+  useTrackView("product_view", p ? { productId: p._id, kind: p.kind, basePrice: p.basePrice } : null, slug);
 
   if (product.error instanceof ApiError && product.error.status === 404) return <NotFoundPage message="That product doesn't exist." />;
   if (!product.data) return <div className="h-96 animate-pulse rounded-3xl bg-slate-200/70" />;
@@ -86,7 +90,12 @@ function ProductDetails({ product: p }: { product: ProductDetail }) {
         <div className="flex items-center gap-4">
           <button
             disabled={variant.stock === 0 || addToCart.isPending}
-            onClick={() => addToCart.mutate({ sku: variant.sku })}
+            onClick={() =>
+              addToCart.mutate(
+                { sku: variant.sku },
+                { onSuccess: () => track("add_to_cart", { productId: p._id, sku: variant.sku, kind: p.kind, qty: 1, unitPrice: variant.price }) },
+              )
+            }
             className="flex-1 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {variant.stock === 0 ? "Out of stock" : addToCart.isPending ? "Adding…" : "Add to cart"}

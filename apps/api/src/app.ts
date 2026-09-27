@@ -6,12 +6,13 @@ import { authRouter } from "./routes/auth";
 import { cartRouter } from "./routes/cart";
 import { staffRouter } from "./routes/staff";
 import { checkoutRouter } from "./routes/checkout";
+import { eventsRouter } from "./routes/events";
 import { attachSession } from "./middleware/session";
 import { errorHandler, notFound } from "./lib/http";
 
 export function createApp({ mongo, redis }: { mongo: Connection; redis: Redis }) {
   const app = express();
-  app.use(express.json({ limit: "100kb" }));
+  app.use(express.json({ limit: "100kb", type: ["application/json", "text/plain"] }));
   app.set("json spaces", 2); // readable JSON in the browser and in evidence screenshots
 
   // Liveness + dependency check: which replica set member is primary, and is Redis reachable.
@@ -29,6 +30,7 @@ export function createApp({ mongo, redis }: { mongo: Connection; redis: Redis })
   app.use("/api", authRouter(redis));
   app.use("/api", cartRouter(redis));
   app.use("/api", checkoutRouter(redis));
+  app.use("/api", eventsRouter(redis));
   app.use("/api", staffRouter(redis));
 
   app.use("/api", notFound);

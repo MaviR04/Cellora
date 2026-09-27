@@ -277,5 +277,59 @@
     "reportSection": "7. Characteristics: ACID transactions",
     "file": "04-checkout/transaction-rollback.md",
     "capturedAt": "2026-09-27T18:30:52.272Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "event-document",
+    "title": "A stored telemetry event",
+    "shows": "Envelope (eventId, ts, type, source, page, device, receivedAt), identity in the metaField, and type-specific props with denormalised kind and price.",
+    "reportSection": "5. Data model: events",
+    "file": "05-telemetry/event-document.md",
+    "capturedAt": "2026-09-27T18:41:15.147Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "identity-stitching",
+    "title": "Identity stitching after login",
+    "shows": "Events recorded while the shopper was anonymous were updated with their customerId when the identify event was ingested (updateMany on the time-series metaField), so the customer's full history includes pre-login browsing.",
+    "reportSection": "5. Data model: identity stitching",
+    "file": "05-telemetry/identity-stitching.md",
+    "capturedAt": "2026-09-27T18:41:15.144Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "ingest-throughput",
+    "title": "Ingestion throughput",
+    "shows": "20,000 events sent as 400 HTTP batches of 50 (16 concurrent clients). The API only validates and appends to the Redis Stream, so it accepts events faster than they are written to MongoDB; the worker drains the backlog with batched insertMany.",
+    "reportSection": "9. Strengths: write throughput / 11. Evaluation",
+    "file": "05-telemetry/ingest-throughput.md",
+    "capturedAt": "2026-09-27T18:41:18.333Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "journey-end",
+    "title": "End of the recorded shopper journey",
+    "shows": "The order confirmation reached by the automated browser journey whose telemetry is shown in session-timeline.",
+    "reportSection": "6. Implementation: telemetry",
+    "file": "05-telemetry/journey-end.png",
+    "capturedAt": "2026-09-27T18:41:13.493Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "session-timeline",
+    "title": "One shopper session, reconstructed from the events collection",
+    "shows": "Every step of a real browser session (page views, product views, search, add to cart, login, checkout, order) captured by the tracker, sent through the Redis Stream and stored in the time-series collection, queried by meta.sessionId.",
+    "reportSection": "6. Implementation: telemetry pipeline / UC12 session timeline",
+    "file": "05-telemetry/session-timeline.md",
+    "capturedAt": "2026-09-27T18:41:15.137Z"
+  },
+  {
+    "phase": "05-telemetry",
+    "name": "stream-and-counters",
+    "title": "Redis Stream, consumer group and live counters",
+    "shows": "The events:ingest stream with its consumer group (nothing pending = everything acknowledged), and the per-minute counters the worker maintains: INCR counts and a HyperLogLog of distinct sessions, merged across 5 minutes with one PFCOUNT for 'active users now' (UC1).",
+    "reportSection": "7. Characteristics: Redis data structures / UC1",
+    "file": "05-telemetry/stream-and-counters.md",
+    "capturedAt": "2026-09-27T18:41:18.367Z"
   }
 ]

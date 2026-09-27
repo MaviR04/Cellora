@@ -5,7 +5,7 @@ import { imagePath, recordImage, type EvidenceMeta } from "./lib";
 
 let browser: Browser | undefined;
 
-async function getBrowser() {
+export async function getBrowser() {
   browser ??= await chromium.launch({ channel: "msedge" });
   return browser;
 }

@@ -4,6 +4,7 @@ import { KIND_LABELS, PRODUCT_KINDS, type Facets, type ProductKind, type Product
 import { api, qs } from "../lib/api";
 import { GridSkeleton, ProductGrid } from "../components/ProductCard";
 import { NotFoundPage } from "./NotFoundPage";
+import { useTrackView } from "../hooks/useTrack";
 
 export function CategoryPage() {
   const { kind } = useParams();
@@ -33,6 +34,9 @@ function CategoryListing({ kind }: { kind: ProductKind }) {
     if (!("page" in changes)) next.delete("page");
     setParams(next);
   };
+
+  const filters = { brand: brands.join(",") || undefined, sort, min: minRs || undefined, max: maxRs || undefined, page };
+  useTrackView("category_view", { kind, filters }, JSON.stringify(filters));
 
   const facets = useQuery({ queryKey: ["facets", kind], queryFn: () => api<Facets>(`/products/facets?kind=${kind}`) });
   const list = useQuery({

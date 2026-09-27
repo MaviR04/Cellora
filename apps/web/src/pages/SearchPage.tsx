@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ProductCard } from "@da2/shared";
 import { api } from "../lib/api";
 import { GridSkeleton, ProductGrid } from "../components/ProductCard";
+import { useTrackView } from "../hooks/useTrack";
 
 export function SearchPage() {
   const [params] = useSearchParams();
@@ -12,6 +13,8 @@ export function SearchPage() {
     queryFn: () => api<{ items: ProductCard[]; total: number }>(`/search?q=${encodeURIComponent(q)}`),
     enabled: q.length > 0,
   });
+  // Zero-result searches are a signal of catalog gaps for the analyst
+  useTrackView("search", results.data ? { query: q, resultCount: results.data.total } : null, q);
 
   return (
     <div className="flex flex-col gap-6">

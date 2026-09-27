@@ -5,6 +5,8 @@ import { formatMoney } from "@da2/shared";
 import { post, ApiError } from "../lib/api";
 import { useCart } from "../hooks/useCart";
 import { useMe } from "../hooks/useAuth";
+import { useTrackView } from "../hooks/useTrack";
+import { track } from "../lib/tracker";
 
 const FREE_SHIPPING_FROM = 50_000 * 100;
 const SHIPPING_FEE = 500 * 100;
@@ -23,6 +25,8 @@ export function CheckoutPage() {
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: "", email: "", phone: "", line1: "", line2: "", city: "", postcode: "" });
   const [payment, setPayment] = useState<Payment>("cod");
+  // Funnel step 3 (UC2)
+  useTrackView("checkout_started", cart.data?.lines.length ? { cartValue: cart.data.subtotal, itemCount: cart.data.itemCount } : null);
 
   const placeOrder = useMutation({
     mutationFn: () =>
@@ -52,6 +56,7 @@ export function CheckoutPage() {
       className="grid gap-8 lg:grid-cols-3"
       onSubmit={(e) => {
         e.preventDefault();
+        track("payment_submitted", { method: payment });
         placeOrder.mutate();
       }}
     >

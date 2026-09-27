@@ -404,3 +404,115 @@ Then re-run the race and read the output: `npm run evidence -- checkout`.
 
 ### One-minute summary
 > Checkout is the one place I use a multi-document ACID transaction: for each cart line, a conditional atomic update decrements stock only if enough remains, then the order is inserted with an embedded snapshot of the items, all committed with majority write concern. If any item has sold out, the whole transaction rolls back. In a 20-way race for the last unit, exactly one customer wins; a naive read-then-write approach sold 18 units of 1. Orders copy prices because they're historical records; carts don't because they must stay current.
+
+---
+
+## Phase 5: Telemetry pipeline
+
+This is the heart of the NoSQL story. Know this flow by heart:
+
+```
+browser tracker ──POST /api/events──▶ API ──XADD──▶ Redis Stream ──XREADGROUP──▶ worker ──insertMany──▶ MongoDB time-series
+   (batches, sendBeacon)          (validate, 202)   events:ingest   (consumer group)   (+ counters, XACK)        events
+```
+
+### Concepts
+
+**Why not write straight to MongoDB from the API?** Decoupling.
+- The request path only validates and appends to an in-memory log, then answers **202 Accepted** ("I've got it, it'll be processed").
+- A traffic spike fills the stream buffer instead of slowing the storefront.
+- MongoDB receives **big batches** (up to 500 per `insertMany`), which are far cheaper than one insert per click.
+- **Evidence:** the API accepted 20,000 events in 0.66 s (~30k/s); the worker stored them all within ~3.2 s (~6.3k/s). The gap between the two *is* the buffering.
+- This is **eventual consistency** on purpose: an event shows up in MongoDB a moment after it happened.
+
+**Redis Streams.** An append-only log inside Redis.
+- `XADD` appends an entry with an auto-generated, time-ordered id (`1790534475814-7`).
+- `MAXLEN ~ 100000` caps its length. The `~` means "approximately", which makes trimming cheap.
+- Entries stay in the stream after they're processed; it's a log, not a queue that empties.
+
+**Consumer groups (the key concept):**
+- A group (`ingest-workers`) tracks which entries have been **delivered** to which consumer and which have been **acknowledged**.
+- `XREADGROUP … >` = "give me entries nobody in my group has seen". Add more workers to the same group and they **share** the work: horizontal scaling.
+- Each delivered entry sits in the **Pending Entries List** until `XACK`.
+- `XAUTOCLAIM` = "hand me entries that another consumer took more than 60 s ago and never acknowledged" (it probably crashed). That's the recovery path.
+
+**Delivery guarantees.** Say these precisely:
+
+| Guarantee | Meaning | Here? |
+|---|---|---|
+| At most once | may lose, never duplicates | no |
+| **At least once** | never loses (once in the stream), may duplicate | **yes**: ack only *after* `insertMany` succeeds |
+| Exactly once | neither | hard; needs idempotent writes |
+
+- Why duplicates are possible: the worker could crash after inserting but before acknowledging, so the entry is redelivered.
+- A time-series collection **can't have a unique index**, so MongoDB can't reject the duplicate.
+- **Mitigation:** the worker remembers inserted `eventId`s for an hour (`seen:{eventId}` keys in Redis) and skips repeats. It's best effort, and this is a *limitation* for the report.
+
+**Dead-letter stream.** An entry that can't even be parsed is moved to `events:dead` and acknowledged, so one poisoned message can't block the pipeline forever.
+
+**Two write paths, two trust levels:**
+- *Client events* (`page_view`, `add_to_cart`…) are validated per event with Zod, and bad ones are dropped individually. They're **untrusted**: a user could fake them or an ad-blocker could drop them.
+- *Server events* (`order_placed`, `checkout_failed`) are emitted by the API itself, so they're trusted. Revenue numbers must come from these.
+- `customerId` is **never** taken from the browser; the API derives it from the session cookie.
+
+**The tracker (browser side):**
+- Events are queued and sent in batches (every 4 s or 20 events), fewer requests than one per click.
+- `navigator.sendBeacon` on page hide/close: the browser delivers it even while the page unloads. It can't set custom headers, so identity travels in the request body.
+- `useTrackView` de-duplicates "view" events per navigation (React StrictMode runs effects twice in development).
+
+**Identity stitching, end to end:**
+- Before login, events have `meta.customerId: null`.
+- The `identify` event reaches the worker, which runs `updateMany({"meta.anonymousId": a, "meta.customerId": null}, {$set: {"meta.customerId": id}})`.
+- This is **allowed on a time-series collection only because it touches the `metaField`**. That's the reason identity lives in `meta` (data-model §4.4).
+- **Evidence:** 12 of 12 pre-login events linked.
+
+**Live counters with Redis (UC1: "real-time customer activity"):**
+- `INCR evt:{type}:{minute}` counts events per minute.
+- `PFADD active:{minute} sessionId` adds to a **HyperLogLog**, a probabilistic structure that counts *distinct* items in **12 KB max** (112 bytes here) with about 0.81% error, however many sessions there are.
+- "Active users in the last 5 minutes" = `PFCOUNT` over 5 keys, which merges them. An exact count would need to store every session id.
+- Keys expire after 2 hours (TTL), so there's no cleanup job.
+
+**Time-series collection, in use.**
+- Events with the same `meta` (same browser/session) are stored together in compressed **buckets**, so a session's timeline is cheap to read (UC12).
+- Deletes by `meta` field are allowed. The benchmark cleans up with `deleteMany({"meta.anonymousId": …})`, and GDPR erasure (UC15) will use the same mechanism.
+
+### Read these files
+1. [apps/web/src/lib/tracker.ts](../apps/web/src/lib/tracker.ts): queue, batch, flush, sendBeacon.
+2. [apps/api/src/routes/events.ts](../apps/api/src/routes/events.ts): per-event validation, enrichment, pipelined `XADD`, 202.
+3. [apps/worker/src/ingest.ts](../apps/worker/src/ingest.ts): **read all of it**: `ensureGroup`, `run` (XREADGROUP loop), `recoverPending` (XAUTOCLAIM), `process` (parse → dedupe → insertMany → counters → stitching → XACK).
+4. [packages/shared/src/events.ts](../packages/shared/src/events.ts): the event catalogue again, now you know where each event is sent.
+5. `evidence/05-telemetry/session-timeline.md`: a real session, event by event.
+
+### Try it yourself
+Open http://localhost:5173 in a private window, click around, then:
+```bash
+npm run redis:cli
+XINFO GROUPS events:ingest          # pending should be 0, lag 0
+XREVRANGE events:ingest + - COUNT 3
+XPENDING events:ingest ingest-workers
+KEYS evt:all:*                      # fine on a dev box; use SCAN in production
+PFCOUNT active:<the latest minute key>
+```
+```js
+// npm run db:shell
+db.events.find().sort({ ts: -1 }).limit(5)
+db.events.aggregate([{ $group: { _id: "$type", n: { $sum: 1 } } }, { $sort: { n: -1 } }])
+db.events.find({ "meta.sessionId": "<a sessionId from above>" }).sort({ ts: 1 })
+db.events.stats().timeseries          // buckets, bucket count, compression details
+```
+**Crash test:** stop the worker (Ctrl+C in its terminal), browse a bit, and run `XINFO GROUPS events:ingest`: `lag` grows (events waiting). Start the worker again and it catches up, with nothing lost.
+
+### Viva questions
+- **"Walk me through what happens when a customer clicks 'Add to cart'."** API updates the Redis cart → the browser tracks `add_to_cart` → batched to `/api/events` → validated, `XADD` to the stream, 202 → worker `XREADGROUP` → `insertMany` into the time-series collection → counters → `XACK`.
+- **"Why have a queue between the API and MongoDB?"** Decoupling and buffering spikes, batching writes, fast responses. Quote the 30k/s vs 6.3k/s evidence.
+- **"What if the worker crashes?"** Unacknowledged entries stay pending; when it restarts (or another worker takes over via `XAUTOCLAIM`) they're processed. At least once, so possible duplicates, mitigated by `eventId` de-duplication.
+- **"Why not Kafka?"** Kafka is the industry standard at scale (partitions, long retention, replay across many services). Redis Streams give the same consumer-group model with a store we already run for other reasons. At this scale, adding Kafka would add a system without a use case, the same rule that excluded Cassandra.
+- **"What is a HyperLogLog and why use it?"** A probabilistic distinct counter: fixed ≤12 KB of memory, ~0.81% error, and mergeable across minutes. Perfect for "active users now", where exactness doesn't matter.
+- **"How can you update events if time-series collections are append-only?"** Updates and deletes are allowed when they filter or modify only the `metaField`; that's why identity is stored there.
+- **"Can users fake events?"** Client events, yes. That's why purchases are server-side events and `customerId` comes from the session, not the request body.
+
+### Evidence
+`evidence/05-telemetry/`: session timeline (a real 18-event browser session), identity stitching, event document, ingest throughput (20,000 events), stream/consumer group/live counters, journey screenshot.
+
+### One-minute summary
+> The browser batches telemetry to `/api/events`. The API validates each event, enriches it with device and server-side identity, appends it to a Redis Stream and replies 202, so ingestion never slows the store. A worker in a consumer group reads the stream in batches of up to 500, bulk-inserts into MongoDB's time-series collection, updates per-minute counters and HyperLogLogs for "active now", links anonymous events to the customer after login, and only then acknowledges. That gives at-least-once delivery with crash recovery through `XAUTOCLAIM`, and best-effort de-duplication. On a laptop it accepted 30k events/s and stored 6.3k/s.

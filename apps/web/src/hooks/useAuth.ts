@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { STAFF_ROLES, type Role } from "@da2/shared";
 import { api, post } from "../lib/api";
+import { flush, track } from "../lib/tracker";
 
 export interface Me {
   id: string;
@@ -27,6 +28,18 @@ function useAuthMutation<V>(fn: (v: V) => Promise<unknown>) {
   });
 }
 
-export const useLogin = () => useAuthMutation((v: { email: string; password: string }) => post("/auth/login", v));
-export const useSignup = () => useAuthMutation((v: { name: string; email: string; password: string }) => post("/auth/signup", v));
+/** Link this browser's anonymous history to the account (identity stitching, data-model §6). */
+function identify(user: Me, via: "login" | "signup") {
+  track("identify", { customerId: user.id, via });
+  void flush();
+}
+
+export const useLogin = () =>
+  useAuthMutation((v: { email: string; password: string }) =>
+    post<{ user: Me }>("/auth/login", v).then((r) => (identify(r.user, "login"), r)),
+  );
+export const useSignup = () =>
+  useAuthMutation((v: { name: string; email: string; password: string }) =>
+    post<{ user: Me }>("/auth/signup", v).then((r) => (identify(r.user, "signup"), r)),
+  );
 export const useLogout = () => useAuthMutation(() => post("/auth/logout"));

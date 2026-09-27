@@ -3,11 +3,20 @@ import { formatMoney } from "@da2/shared";
 import { useCart, useRemoveLine, useSetQty } from "../hooks/useCart";
 import { useMe } from "../hooks/useAuth";
 import { ProductVisual } from "../components/ProductVisual";
+import { track } from "../lib/tracker";
 
 export function CartPage() {
   const cart = useCart();
-  const setQty = useSetQty();
-  const remove = useRemoveLine();
+  const setQtyMutation = useSetQty();
+  const removeMutation = useRemoveLine();
+
+  // Cart changes are tracked after the server confirms them.
+  const changeQty = (sku: string, from: number, to: number) =>
+    setQtyMutation.mutate(
+      { sku, qty: to },
+      { onSuccess: () => (to === 0 ? track("remove_from_cart", { sku, qty: from }) : track("update_quantity", { sku, from, to })) },
+    );
+  const removeLine = (sku: string, qty: number) => removeMutation.mutate(sku, { onSuccess: () => track("remove_from_cart", { sku, qty }) });
   const { user } = useMe();
 
   if (!cart.data) return <div className="h-64 animate-pulse rounded-3xl bg-slate-200/70" />;
@@ -44,15 +53,15 @@ export function CartPage() {
                 )}
                 <div className="mt-auto flex items-center gap-3 pt-2">
                   <div className="flex items-center rounded-full border border-slate-200">
-                    <QtyButton label="Decrease quantity" onClick={() => setQty.mutate({ sku: l.sku, qty: l.qty - 1 })}>
+                    <QtyButton label="Decrease quantity" onClick={() => changeQty(l.sku, l.qty, l.qty - 1)}>
                       −
                     </QtyButton>
                     <span className="w-8 text-center text-sm font-medium">{l.qty}</span>
-                    <QtyButton label="Increase quantity" disabled={l.qty >= Math.min(l.stock, 10)} onClick={() => setQty.mutate({ sku: l.sku, qty: l.qty + 1 })}>
+                    <QtyButton label="Increase quantity" disabled={l.qty >= Math.min(l.stock, 10)} onClick={() => changeQty(l.sku, l.qty, l.qty + 1)}>
                       +
                     </QtyButton>
                   </div>
-                  <button onClick={() => remove.mutate(l.sku)} className="text-sm text-slate-500 hover:text-rose-600">
+                  <button onClick={() => removeLine(l.sku, l.qty)} className="text-sm text-slate-500 hover:text-rose-600">
                     Remove
                   </button>
                 </div>

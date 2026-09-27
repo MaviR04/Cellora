@@ -433,7 +433,7 @@ Compound indexes follow the **ESR rule**: **E**quality fields first, then **S**o
 |---|---|---|
 | Checkout | ACID multi-document transaction, `w: "majority"` | Money and stock must be correct |
 | Event writes | `w: 1`, `ordered: false` batches | Throughput over durability; losing a few events on failover is acceptable |
-| Duplicate events | Possible (at-least-once stream delivery; time-series has no unique indexes) | Best-effort mitigation: worker keeps recently seen `eventId`s in a Redis set with a short TTL and skips repeats. Duplicates are not fully prevented; this is a documented limitation |
+| Duplicate events | Possible (at-least-once stream delivery; time-series has no unique indexes) | Best-effort mitigation (implemented): the worker skips `eventId`s it inserted within the last hour (`seen:{eventId}` keys with a 1 h TTL, written only after a successful insert). Duplicates are not fully prevented (e.g. two workers racing, or a redelivery after the TTL); this is a documented limitation |
 | Analyst reads | `secondaryPreferred` | Offloads the primary; may lag by replication delay |
 | Dashboards | Rollups up to one interval stale; cache ≤ 60 s | Eventual consistency accepted for analytics |
 
