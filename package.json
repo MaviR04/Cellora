@@ -8,9 +8,9 @@
     "scripts"
   ],
   "scripts": {
-    "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait",
-    "infra:down": "docker compose -f infra/docker-compose.yml down",
-    "infra:reset": "docker compose -f infra/docker-compose.yml down -v",
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "infra:reset": "docker compose --env-file .env -f infra/docker-compose.yml down -v",
     "db:bootstrap": "npm run bootstrap -w scripts",
     "dev:api": "npm run dev -w apps/api",
     "dev:worker": "npm run dev -w apps/worker",

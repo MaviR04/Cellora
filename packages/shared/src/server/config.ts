@@ -13,6 +13,8 @@ function required(name: string): string {
 
 export const config = {
   mongoUri: required("MONGO_URI"),
+  /** Read-only MongoDB user, secondaryPreferred. Used for all analyst queries. */
+  mongoAnalystUri: required("MONGO_ANALYST_URI"),
   redisUrl: required("REDIS_URL"),
   apiPort: Number(process.env.API_PORT ?? 4000),
   sessionSecret: required("SESSION_SECRET"),

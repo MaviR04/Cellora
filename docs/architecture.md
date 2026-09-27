@@ -239,7 +239,10 @@ The cost: high-cardinality meta values produce many small buckets and weaker com
 
 - Enforced in API middleware from the Redis session (`role`).
 - PII masking is applied in the API response layer for `support`.
-- *Stretch:* connect with a least-privilege MongoDB user, and run analyst queries as a separate read-only user, to show database-level RBAC alongside application RBAC. This needs authentication and a keyfile on the replica set; local development runs without authentication, which the report notes as a production gap.
+- **Database-level RBAC** backs up the application RBAC. MongoDB runs with authentication, and the members authenticate to each other with a keyfile:
+  - `da2_app`: `readWrite` + `dbAdmin` on `da2` (for TTL `collMod` and indexes), plus `clusterMonitor` (for the UC7 health page)
+  - `da2_analyst`: `read` on `da2` only; every Analyst query runs on this connection with `secondaryPreferred`, so even a bug in the API cannot make an analyst request write data
+  - `root`: operations only, never used by the app
 - Staff actions are written to `audit_log`.
 
 ---
@@ -261,7 +264,7 @@ Docker Compose runs the infrastructure. The Node processes run on the host durin
 
 | Service | Image | Notes |
 |---|---|---|
-| `mongo1`, `mongo2`, `mongo3` | `mongo:7.0` | Replica set `rs0`, members advertised as `host.docker.internal:27017-27019`; `mongo1`'s healthcheck initiates the set on first start |
+| `mongo1`, `mongo2`, `mongo3` | `mongo:7.0` | Replica set `rs0` with keyfile authentication, members advertised as `host.docker.internal:27017-27019`; `mongo1`'s healthcheck initiates the set and creates the users on first start |
 | `redis` | `redis:7.4` | AOF enabled |
 
 **Viva demo:** stop the primary (`docker stop mongo1`). The admin health page (UC7) shows a new primary being elected while the storefront keeps working.

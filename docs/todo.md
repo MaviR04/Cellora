@@ -58,7 +58,8 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] DB bootstrap script: create `events` time-series collection, `products` `$jsonSchema` validator, all indexes from data-model §8
 - [x] Root `README.md`: prerequisites + how to run
 - [x] Evidence tooling: `npm run evidence -- <set>` (text captures + Edge screenshots, auto-generated index)
-- [x] 📸 `foundation` set: containers, replica set status, collections & indexes, Redis persistence, API health
+- [x] MongoDB authentication: keyfile between members; `root`, `da2_app` (readWrite + dbAdmin + clusterMonitor) and read-only `da2_analyst` users
+- [x] 📸 `foundation` set: containers, replica set status, database access control, collections & indexes, Redis persistence, API health
 
 ## Phase 2: Catalog & storefront · Sun 27 (seed + API), Mon 28 (UI)
 
@@ -123,7 +124,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [ ] UC2 Funnel chart with date range + step conversion %
 - [ ] UC3 Export report to CSV/JSON
 - [ ] Analyst queries use `secondaryPreferred`
-- [ ] ⭐ Read-only MongoDB user for analyst queries (needs auth + keyfile on the replica set; local dev runs without auth)
+- [ ] Analyst queries go through the read-only `da2_analyst` connection (`connectAnalystMongo`)
 
 **Support**
 - [ ] UC12 Find customer (email / order number / anonymous ID) → sessions list → session timeline

@@ -7,8 +7,9 @@ Screenshots, command output and measurements captured for the report.
 
 | Evidence | Shows | Report section | Captured |
 |---|---|---|---|
-| [API health endpoint](01-foundation/api-health.png) | The Node API connected to the replica set (reporting the current primary) and to Redis. | 6. Implementation | 2026-09-27 11:32 |
-| [Collections, options and indexes](01-foundation/collections-and-indexes.md) | The time-series events collection with TTL, the products $jsonSchema validator, and every index from the data model. | 5. Data model | 2026-09-27 11:32 |
-| [Running containers](01-foundation/docker-compose-ps.md) | Three MongoDB nodes and Redis running and healthy in Docker. | 4. Solution design: deployment | 2026-09-27 11:32 |
-| [Redis persistence configuration](01-foundation/redis-persistence.md) | Redis runs with append-only-file persistence, fsync every second (at most ~1 s of data at risk). | 10. Limitations: Redis durability | 2026-09-27 11:32 |
-| [Replica set status (rs0)](01-foundation/replica-set-status.md) | A 3-member replica set with one PRIMARY and two SECONDARY nodes, the basis for replication, failover and multi-document transactions. | 7. Characteristics: replication & availability | 2026-09-27 11:32 |
+| [API health endpoint](01-foundation/api-health.png) | The Node API connected to the replica set (reporting the current primary) and to Redis. | 6. Implementation | 2026-09-27 12:05 |
+| [Collections, options and indexes](01-foundation/collections-and-indexes.md) | The time-series events collection with TTL, the products $jsonSchema validator, and every index from the data model. | 5. Data model | 2026-09-27 12:05 |
+| [Database-level access control](01-foundation/database-access-control.md) | MongoDB itself enforces roles: the analyst login can read but every write is rejected, and unauthenticated connections are refused. | 7. Characteristics: security model (UC4) | 2026-09-27 12:05 |
+| [Running containers](01-foundation/docker-compose-ps.md) | Three MongoDB nodes and Redis running and healthy in Docker. | 4. Solution design: deployment | 2026-09-27 12:05 |
+| [Redis persistence configuration](01-foundation/redis-persistence.md) | Redis runs with append-only-file persistence, fsync every second (at most ~1 s of data at risk). | 10. Limitations: Redis durability | 2026-09-27 12:05 |
+| [Replica set status (rs0)](01-foundation/replica-set-status.md) | A 3-member replica set with one PRIMARY and two SECONDARY nodes, the basis for replication, failover and multi-document transactions. | 7. Characteristics: replication & availability | 2026-09-27 12:05 |

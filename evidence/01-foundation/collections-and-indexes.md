@@ -1,6 +1,6 @@
 # Collections, options and indexes
 
-- **Captured:** 2026-09-27T11:32:16.354Z
+- **Captured:** 2026-09-27T12:05:23.196Z
 - **Shows:** The time-series events collection with TTL, the products $jsonSchema validator, and every index from the data model.
 - **Report section:** 5. Data model
 - **Command:** `db.getCollectionInfos() + db.<collection>.getIndexes()`

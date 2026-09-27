@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { config, connectMongo, connectRedis } from "@da2/shared/server";
+import { config, connectAnalystMongo, connectMongo, connectRedis } from "@da2/shared/server";
+import { MongoClient } from "mongodb";
 import type { Db } from "mongodb";
 import { recordText, repoRoot } from "../lib";
 import { screenshot } from "../screenshot";
@@ -9,7 +10,7 @@ import type { EvidenceSet } from "./index";
 const phase = "01-foundation";
 
 export const foundation: EvidenceSet = {
-  description: "Containers, replica set, Redis persistence, collections & indexes, API health",
+  description: "Containers, replica set, DB access control, Redis persistence, collections & indexes, API health",
   async run() {
     // 1. Running containers
     const composeFile = join(repoRoot, "infra", "docker-compose.yml");
@@ -37,6 +38,38 @@ export const foundation: EvidenceSet = {
         command: "db.adminCommand({ replSetGetStatus: 1 })",
         body: [`set: ${status.set}    date: ${new Date(status.date).toISOString()}`, "", "member                      state     health priority uptime", ...rows].join("\n"),
       },
+    );
+
+    // 2b. Database-level access control: app vs analyst vs unauthenticated
+    const analyst = await connectAnalystMongo();
+    const roles = async (d: Db) =>
+      ((await d.command({ connectionStatus: 1 })).authInfo.authenticatedUserRoles as { role: string; db: string }[])
+        .map((r) => `${r.role}@${r.db}`)
+        .join(", ");
+    const attempt = async (label: string, fn: () => Promise<unknown>) => {
+      try {
+        await fn();
+        return `${label.padEnd(44)} ALLOWED`;
+      } catch (e: any) {
+        return `${label.padEnd(44)} REJECTED (${e.codeName ?? e.message})`;
+      }
+    };
+    const analystDb = analyst.db as unknown as Db;
+    const noAuth = await MongoClient.connect("mongodb://host.docker.internal:27017/?directConnection=true");
+    const access = [
+      `app user (da2_app) roles:          ${await roles(db)}`,
+      `analyst user (da2_analyst) roles:  ${await roles(analystDb)}`,
+      "",
+      await attempt("analyst: read settings", () => analystDb.collection("settings").findOne({})),
+      await attempt("analyst: insert into settings", () => analystDb.collection("settings").insertOne({ probe: true } as any)),
+      await attempt("analyst: drop events collection", () => analystDb.collection("events").drop()),
+      await attempt("no credentials: read products", () => noAuth.db("da2").collection("products").findOne({})),
+    ];
+    await noAuth.close();
+    await analyst.close();
+    recordText(
+      { phase, name: "database-access-control", title: "Database-level access control", shows: "MongoDB itself enforces roles: the analyst login can read but every write is rejected, and unauthenticated connections are refused.", reportSection: "7. Characteristics: security model (UC4)" },
+      { body: access.join("\n"), command: "connectionStatus + attempted operations per user" },
     );
 
     // 3. Collections, collection types/options and indexes

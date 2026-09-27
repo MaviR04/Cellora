@@ -1,44 +1,61 @@
 name: da2
 
-# 3-node MongoDB replica set + Redis.
+# 3-node MongoDB replica set (with authentication) + Redis.
 #
 # Each mongod listens on its own port and advertises itself as host.docker.internal:<port>.
 # That name resolves both inside containers and on the Windows host (Docker Desktop adds it
 # to the hosts file), so the app on the host can follow replica set failover without any
 # hosts-file edits.
+#
+# Variables come from the repo-root .env (npm scripts pass --env-file .env).
 
 x-mongo: &mongo
   image: mongo:7.0
   restart: unless-stopped
   extra_hosts:
     - "host.docker.internal:host-gateway"
+  environment:
+    MONGO_KEYFILE: ${MONGO_KEYFILE:?set MONGO_KEYFILE in .env}
+  # Replica set members authenticate to each other with a shared keyfile. mongod refuses a
+  # keyfile readable by others, and Windows bind mounts can't set Unix permissions, so the
+  # file is written inside the container from an environment variable instead.
+  entrypoint:
+    - bash
+    - -c
+    - |
+      printf '%s' "$$MONGO_KEYFILE" > /tmp/keyfile
+      chmod 400 /tmp/keyfile && chown mongodb:mongodb /tmp/keyfile
+      exec docker-entrypoint.sh "$$@"
+    - --
 
 services:
   mongo1:
     <<: *mongo
     container_name: mongo1
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017", "--keyFile", "/tmp/keyfile"]
     ports: ["27017:27017"]
-    volumes: ["mongo1-data:/data/db"]
-    # Initiates the replica set on first start, then just reports health.
+    volumes:
+      - mongo1-data:/data/db
+      - ./mongo/init-replica-set.js:/init/init-replica-set.js:ro
+    environment:
+      MONGO_KEYFILE: ${MONGO_KEYFILE}
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER}
+      MONGO_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_APP_USER: ${MONGO_APP_USER}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+      MONGO_ANALYST_USER: ${MONGO_ANALYST_USER}
+      MONGO_ANALYST_PASSWORD: ${MONGO_ANALYST_PASSWORD}
+    # Healthy = replica set is up and root can authenticate. Until then, run the init script
+    # (initiate the set, create users) via the localhost exception and report unhealthy.
     healthcheck:
       test:
-        - CMD
-        - mongosh
-        - --port
-        - "27017"
-        - --quiet
-        - --eval
+        - CMD-SHELL
         - >
-          try { rs.status().ok } catch (e) {
-            rs.initiate({ _id: 'rs0', members: [
-              { _id: 0, host: 'host.docker.internal:27017', priority: 2 },
-              { _id: 1, host: 'host.docker.internal:27018', priority: 1 },
-              { _id: 2, host: 'host.docker.internal:27019', priority: 1 }
-            ]}).ok
-          }
+          mongosh --port 27017 --quiet -u "$$MONGO_ROOT_USER" -p "$$MONGO_ROOT_PASSWORD" --authenticationDatabase admin
+          --eval 'quit(rs.status().ok ? 0 : 1)' >/dev/null 2>&1
+          || { mongosh --port 27017 --quiet /init/init-replica-set.js; exit 1; }
       interval: 5s
-      timeout: 10s
+      timeout: 60s
       start_period: 10s
       retries: 30
     depends_on: [mongo2, mongo3]
@@ -46,14 +63,14 @@ services:
   mongo2:
     <<: *mongo
     container_name: mongo2
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27018", "--keyFile", "/tmp/keyfile"]
     ports: ["27018:27018"]
     volumes: ["mongo2-data:/data/db"]
 
   mongo3:
     <<: *mongo
     container_name: mongo3
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27019", "--keyFile", "/tmp/keyfile"]
     ports: ["27019:27019"]
     volumes: ["mongo3-data:/data/db"]
 

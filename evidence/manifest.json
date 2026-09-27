@@ -6,7 +6,7 @@
     "shows": "The Node API connected to the replica set (reporting the current primary) and to Redis.",
     "reportSection": "6. Implementation",
     "file": "01-foundation/api-health.png",
-    "capturedAt": "2026-09-27T11:32:18.296Z"
+    "capturedAt": "2026-09-27T12:05:24.697Z"
   },
   {
     "phase": "01-foundation",
@@ -15,7 +15,16 @@
     "shows": "The time-series events collection with TTL, the products $jsonSchema validator, and every index from the data model.",
     "reportSection": "5. Data model",
     "file": "01-foundation/collections-and-indexes.md",
-    "capturedAt": "2026-09-27T11:32:16.354Z"
+    "capturedAt": "2026-09-27T12:05:23.197Z"
+  },
+  {
+    "phase": "01-foundation",
+    "name": "database-access-control",
+    "title": "Database-level access control",
+    "shows": "MongoDB itself enforces roles: the analyst login can read but every write is rejected, and unauthenticated connections are refused.",
+    "reportSection": "7. Characteristics: security model (UC4)",
+    "file": "01-foundation/database-access-control.md",
+    "capturedAt": "2026-09-27T12:05:23.176Z"
   },
   {
     "phase": "01-foundation",
@@ -24,7 +33,7 @@
     "shows": "Three MongoDB nodes and Redis running and healthy in Docker.",
     "reportSection": "4. Solution design: deployment",
     "file": "01-foundation/docker-compose-ps.md",
-    "capturedAt": "2026-09-27T11:32:16.271Z"
+    "capturedAt": "2026-09-27T12:05:23.050Z"
   },
   {
     "phase": "01-foundation",
@@ -33,7 +42,7 @@
     "shows": "Redis runs with append-only-file persistence, fsync every second (at most ~1 s of data at risk).",
     "reportSection": "10. Limitations: Redis durability",
     "file": "01-foundation/redis-persistence.md",
-    "capturedAt": "2026-09-27T11:32:16.366Z"
+    "capturedAt": "2026-09-27T12:05:23.209Z"
   },
   {
     "phase": "01-foundation",
@@ -42,6 +51,6 @@
     "shows": "A 3-member replica set with one PRIMARY and two SECONDARY nodes, the basis for replication, failover and multi-document transactions.",
     "reportSection": "7. Characteristics: replication & availability",
     "file": "01-foundation/replica-set-status.md",
-    "capturedAt": "2026-09-27T11:32:16.337Z"
+    "capturedAt": "2026-09-27T12:05:23.120Z"
   }
 ]
