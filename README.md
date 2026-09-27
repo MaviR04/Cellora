@@ -2,7 +2,7 @@
 
 E-commerce store for phones and electronic accessories (LKR), with a telemetry platform that tracks customer behaviour. It uses MongoDB (document + time-series) and Redis (key-value + streams).
 
-Design docs: [use cases](docs/use-cases-and-roles.md) · [architecture](docs/architecture.md) · [data model](docs/data-model.md) · [roadmap](docs/todo.md) · [evidence](evidence/README.md)
+Design docs: [use cases](docs/use-cases-and-roles.md) · [architecture](docs/architecture.md) · [data model](docs/data-model.md) · [roadmap](docs/todo.md) · [study guide](docs/study-guide.md) · [evidence](evidence/README.md)
 
 ## Prerequisites
 
@@ -39,6 +39,8 @@ npm run dev:web         # http://localhost:5173  (storefront)
 | `npm run dev:api` | API on http://localhost:4000 (auto-reloads) |
 | `npm run dev:web` | Storefront on http://localhost:5173 (proxies `/api` to the API) |
 | `npm run dev:worker` | Background worker (stream consumer, rollups) |
+| `npm run db:shell` | mongosh as the app user (`-- --analyst` for the read-only user) |
+| `npm run redis:cli` | redis-cli inside the Redis container |
 | `npm run typecheck` | Type-check all workspaces |
 | `npm run evidence -- --list` | List evidence capture sets |
 | `npm run evidence -- <set>` | Capture report evidence into `evidence/` |

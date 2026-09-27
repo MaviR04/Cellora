@@ -9,6 +9,7 @@ End-to-end plan for the assignment: application **and** report, through to the v
 **Conventions**
 - 📸 = evidence for the report, captured *while* doing the task with `npm run evidence -- <set>` into [`evidence/`](../evidence/README.md). Each phase gets a capture set.
 - ⭐ = stretch goal; do it only if the core items are done and on schedule.
+- After each phase, its section in [study-guide.md](study-guide.md) is written: study it the same day.
 - Related docs: [use-cases-and-roles.md](use-cases-and-roles.md) · [architecture.md](architecture.md) · [data-model.md](data-model.md)
 
 ---

@@ -17,7 +17,9 @@
     "evidence": "npm run evidence -w scripts --",
     "typecheck": "tsc -p packages/shared && tsc -p apps/api && tsc -p apps/worker && tsc -p scripts && tsc -p apps/web",
     "db:seed": "npm run seed -w scripts",
-    "dev:web": "npm run dev -w apps/web"
+    "dev:web": "npm run dev -w apps/web",
+    "db:shell": "npm run shell -w scripts --",
+    "redis:cli": "docker exec -it redis redis-cli"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
