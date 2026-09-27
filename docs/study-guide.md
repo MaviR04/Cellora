@@ -315,3 +315,92 @@ DEL sess:<id>                        # refresh the browser: you're logged out in
 
 ### One-minute summary
 > Redis holds the fast, temporary, key-addressed data. Carts are hashes of SKU to quantity with a 30-day TTL, merged from guest to customer at login, and always priced live from MongoDB. Sessions are Redis hashes behind an httpOnly cookie, indexed per user in a set, so an admin can revoke them instantly, which a JWT can't do. The API enforces roles with 401/403, backed by the read-only database user from Phase 1. Passwords are scrypt-hashed with per-user salts.
+
+---
+
+## Phase 4: Checkout & orders
+
+### Concepts
+
+**Atomic single-document operations.**
+- Every write to *one* MongoDB document is atomic: the filter and the update happen as one indivisible step.
+- The checkout relies on this:
+  ```js
+  updateOne(
+    { _id, variants: { $elemMatch: { sku, stock: { $gte: qty } } } },   // only if enough stock
+    { $inc: { "variants.$.stock": -qty } }                               // "$" = the matched variant
+  )
+  ```
+- If two customers race for the last unit, only one can match `stock >= 1`. The other gets `matchedCount: 0`.
+- **This is why variants are embedded** (Phase 2): the stock lives inside the product document, so one atomic update is enough.
+
+**The lost-update bug (why "read, check, write" is wrong).** If the app does `stock = find(); if (stock >= 1) set(stock - 1)`, all 20 buyers read "1" before anyone writes, so all 20 "buy" it. The evidence shows **18 units sold of 1**. The fix is to let the database do the check and the write together (the conditional update above).
+
+**Multi-document ACID transactions.**
+- A checkout touches several documents: one product per cart line, plus the new order. Either **all** of these writes happen or **none** do.
+- `session.withTransaction(fn)` commits at the end, **aborts** if `fn` throws (we throw `OutOfStock`), and **retries** automatically on transient errors such as a write conflict with a concurrent checkout.
+- **Rollback in the evidence:** inside the transaction the charger's stock went 108 → 107; then the phone was sold out → abort → back to 108.
+- They **require a replica set.** That's one reason we run three nodes (Phase 1).
+- **Trade-off:** transactions add latency and contention. MongoDB's guidance is to use them only when a single-document operation isn't enough. We use exactly one: checkout.
+
+| ACID | What it means in the checkout |
+|---|---|
+| **A**tomic | Stock decrements + order insert: all or nothing |
+| **C**onsistent | Validator: stock can never be negative; the order always matches the stock taken |
+| **I**solated | `readConcern: "snapshot"`: the transaction sees one consistent point in time |
+| **D**urable | `writeConcern: { w: "majority" }`: committed on 2 of 3 nodes, so it survives a primary crash |
+
+**Tunable consistency, in practice.** Orders use `w: "majority"` (slower, safe). Telemetry events will use `w: 1` (fast; losing one click on a failover is acceptable). You choose per operation. Relational databases usually give you one global setting.
+
+**Embedded snapshot vs reference (the opposite of the cart).**
+- An **order** copies name, variant and unit price into `items`. It's a *historical record*: if the product is repriced tomorrow, the order must still show what was paid.
+- A **cart** stores only `sku → qty` and looks up live prices (Phase 3).
+- Same data, opposite decisions, both justified by how the data is used. **Great viva point.**
+
+**Order numbers from a counter document.**
+- MongoDB has no auto-increment. The pattern: `findOneAndUpdate({_id: "order-20260928"}, {$inc: {seq: 1}}, {upsert: true})`. It's atomic, so no duplicates.
+- It's kept **outside** the transaction on purpose: every checkout hits that one document, and inside a transaction it would become a write-conflict hotspot. A failed checkout leaves a gap in the numbers (e.g. 0001 → 0021 after the race), which is harmless.
+
+**Server-side events.** `order_placed` and `checkout_failed` are emitted by the API, not the browser. They're **trusted** (a browser could fake a "purchase" event) and appended to the Redis Stream `events:ingest` with `XADD … MAXLEN ~ 100000`. Phase 5's worker moves them into MongoDB.
+
+**Guest checkout.** `customerId: null` plus `guestEmail`. A guest can view the order only from the same browser session (`sessionId` matches), so order numbers can't be guessed to see other people's orders.
+
+### Read these files
+1. [apps/api/src/routes/checkout.ts](../apps/api/src/routes/checkout.ts): **the most important file for the viva.** Read the transaction block line by line.
+2. [packages/shared/src/server/models/order.ts](../packages/shared/src/server/models/order.ts): the snapshot line items and the embedded `statusHistory`.
+3. [apps/api/src/lib/telemetry.ts](../apps/api/src/lib/telemetry.ts): `emitServerEvent` → `XADD`.
+4. [scripts/evidence/captures/checkout.ts](../scripts/evidence/captures/checkout.ts): sections 1–3 are the race experiments. Understand what each proves.
+
+### Try it yourself
+```js
+// npm run db:shell
+db.orders.find({}, { orderNumber: 1, "totals.total": 1, status: 1 }).sort({ createdAt: -1 }).limit(3)
+db.orders.findOne({}, { items: 1 })                 // the embedded snapshot
+db.counters.find()                                  // the order-number sequences
+db.products.findOne({ "variants.sku": "IP16PM-1T-DT" }, { "variants.$": 1 })   // the contested phone
+
+// Try the conditional update yourself (run twice: the second matches 0 documents)
+db.products.updateOne({ variants: { $elemMatch: { sku: "IP16PM-1T-DT", stock: { $gte: 1 } } } }, { $inc: { "variants.$.stock": -1 } })
+db.products.updateOne({ "variants.sku": "IP16PM-1T-DT" }, { $set: { "variants.$.stock": 1 } })   // put it back
+```
+```bash
+npm run redis:cli
+XLEN events:ingest
+XREVRANGE events:ingest + - COUNT 2
+```
+Then re-run the race and read the output: `npm run evidence -- checkout`.
+
+### Viva questions
+- **"How do you prevent overselling?"** A conditional atomic update (`$elemMatch` with `stock >= qty`, plus `$inc`) inside a transaction. Quote the evidence: 20 buyers, 1 unit, 1 order and 19 × 409; the naive approach sold 18.
+- **"Doesn't NoSQL mean no transactions?"** Not for MongoDB: multi-document ACID transactions since 4.0, on replica sets. But they cost performance, so the design keeps them to the one place that needs them. Single-document writes are always atomic anyway.
+- **"What happens if the second item is out of stock after the first was decremented?"** The transaction aborts and the first decrement is rolled back (`transaction-rollback` evidence).
+- **"Why `w: majority` for orders?"** So a committed order survives the primary crashing: it's on at least 2 of 3 nodes. With `w: 1` a failover could roll back an acknowledged order.
+- **"Why copy prices into the order but not into the cart?"** Order = historical record (snapshot); cart = current intent (live lookup).
+- **"How do you generate sequential order numbers without auto-increment?"** An atomic `$inc` on a counter document; outside the transaction to avoid a hotspot; gaps are fine.
+- **"Why are purchase events sent from the server, not the browser?"** Trust: client events can be forged or blocked by ad-blockers. Revenue analytics must come from the server.
+
+### Evidence
+`evidence/04-checkout/`: naive vs atomic overselling, transaction rollback, the 20-way checkout race, the order document, server events in the stream, and 3 screenshots.
+
+### One-minute summary
+> Checkout is the one place I use a multi-document ACID transaction: for each cart line, a conditional atomic update decrements stock only if enough remains, then the order is inserted with an embedded snapshot of the items, all committed with majority write concern. If any item has sold out, the whole transaction rolls back. In a 20-way race for the last unit, exactly one customer wins; a naive read-then-write approach sold 18 units of 1. Orders copy prices because they're historical records; carts don't because they must stay current.

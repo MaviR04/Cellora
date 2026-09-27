@@ -59,6 +59,11 @@ function HeaderActions() {
       {user ? (
         <>
           <span className="hidden sm:inline">Hi, {user.name.split(" ")[0]}</span>
+          {!isStaff && (
+            <Link to="/orders" className="hover:text-slate-900">
+              Orders
+            </Link>
+          )}
           <button onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/") })} className="hover:text-slate-900">
             Log out
           </button>

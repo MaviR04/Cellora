@@ -8,6 +8,8 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { LoginPage, SignupPage } from "./pages/AuthPages";
 import { CartPage } from "./pages/CartPage";
 import { StaffHomePage } from "./pages/StaffHomePage";
+import { CheckoutPage } from "./pages/CheckoutPage";
+import { OrderPage, OrdersPage } from "./pages/OrderPages";
 
 export function App() {
   return (
@@ -18,6 +20,9 @@ export function App() {
         <Route path="search" element={<SearchPage />} />
         <Route path="p/:slug" element={<ProductPage />} />
         <Route path="cart" element={<CartPage />} />
+        <Route path="checkout" element={<CheckoutPage />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route path="orders/:orderNumber" element={<OrderPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="staff" element={<StaffHomePage />} />

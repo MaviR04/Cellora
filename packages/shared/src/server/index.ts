@@ -3,3 +3,4 @@ export * from "./connections";
 export * from "./models/product";
 export * from "./models/user";
 export * from "./auth";
+export * from "./models/order";

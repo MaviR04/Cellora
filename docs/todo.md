@@ -86,11 +86,11 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 4: Checkout & orders · Mon 28
 
-- [ ] Checkout flow: address, simulated payment, place order
-- [ ] Multi-document transaction: per-variant stock decrement (`$elemMatch` + positional `$inc`) + order insert, `w: "majority"`
-- [ ] Failure paths: out of stock, simulated payment declined
-- [ ] Order confirmation + "My orders" page
-- [ ] 📸 Concurrency test: parallel checkouts for the last unit of stock; exactly one succeeds (no overselling)
+- [x] Checkout flow: contact, address, simulated payment (COD / card approve / card decline, no card data collected), guest or logged-in
+- [x] Multi-document transaction: per-variant stock decrement (`$elemMatch` + positional `$inc`) + order insert, `w: "majority"`, snapshot read concern, `withTransaction` retries
+- [x] Failure paths: out of stock (409), simulated payment declined (402); server events `order_placed` / `checkout_failed` sent to the Redis Stream
+- [x] Order confirmation + "My orders" page; order numbers from an atomic counter document
+- [x] 📸 Concurrency test: 20 parallel checkouts for the last unit, exactly one succeeds; naive read-then-write oversells; explicit rollback; order document; stream; 3 screenshots
 
 ## Phase 5: Telemetry pipeline · Mon 28
 
@@ -150,7 +150,8 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 - [ ] Funnel correctness check on a small fixed dataset (script)
 - [ ] ⭐ Unit test suite: Zod event schemas, PII masking
-- [ ] Scripted checks: stock race, GDPR erasure
+- [x] Scripted check: stock race (`npm run evidence -- checkout`)
+- [ ] Scripted check: GDPR erasure
 - [ ] ⭐ Automated integration tests (checkout, identity backfill)
 - [ ] Failover test: `docker stop` the primary → election → app recovers
 - [ ] Measure and record: ingest throughput, dashboard latency (raw vs rollup vs cache), index vs collection scan

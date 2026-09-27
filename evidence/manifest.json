@@ -205,5 +205,77 @@
     "reportSection": "5. Data model: users",
     "file": "03-auth-cart/user-document.md",
     "capturedAt": "2026-09-27T12:49:17.756Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "checkout-page",
+    "title": "Checkout page",
+    "shows": "Checkout for a logged-in customer: delivery address, simulated payment options (no card data collected), live order summary.",
+    "reportSection": "6. Implementation: checkout (UC11)",
+    "file": "04-checkout/checkout-page.png",
+    "capturedAt": "2026-09-27T18:30:56.943Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "checkout-race",
+    "title": "Checkout race: 20 customers, 1 unit left",
+    "shows": "20 concurrent POST /api/checkout requests, each for [45W charger, last 1TB iPhone 16 Pro Max]. Exactly one order is created, the phone is not oversold, and the losers' charger decrements are rolled back (charger stock drops by exactly 1).",
+    "reportSection": "6. Implementation: checkout transaction / 9. Strengths / 11. Evaluation",
+    "file": "04-checkout/checkout-race.md",
+    "capturedAt": "2026-09-27T18:30:52.965Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "order-confirmation",
+    "title": "Order confirmation",
+    "shows": "Confirmation page rendered from the order's embedded snapshot.",
+    "reportSection": "6. Implementation: checkout (UC11)",
+    "file": "04-checkout/order-confirmation.png",
+    "capturedAt": "2026-09-27T18:30:54.682Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "order-document",
+    "title": "Order document (embedded snapshot)",
+    "shows": "Line items and the delivery address are embedded copies taken at checkout (name, variant, unit price), so the order stays correct even if the product is later renamed or repriced. customerId references the user; sessionId links the order to its telemetry.",
+    "reportSection": "5. Data model: embed vs reference (orders)",
+    "file": "04-checkout/order-document.md",
+    "capturedAt": "2026-09-27T18:30:53.112Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "order-history",
+    "title": "Order history",
+    "shows": "The customer's orders, newest first (index {customerId: 1, createdAt: -1}).",
+    "reportSection": "6. Implementation: order history (UC13)",
+    "file": "04-checkout/order-history.png",
+    "capturedAt": "2026-09-27T18:30:55.790Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "oversell-naive-vs-atomic",
+    "title": "Overselling: read-then-write vs conditional update",
+    "shows": "20 concurrent buyers, 1 unit in stock. The naive approach (read stock, then write stock-1) sells 18 units: a lost-update race. The single atomic conditional update ($elemMatch stock >= 1 + $inc) sells exactly 1.",
+    "reportSection": "7. Characteristics: atomic single-document operations / 9. Strengths",
+    "file": "04-checkout/oversell-naive-vs-atomic.md",
+    "capturedAt": "2026-09-27T18:30:52.247Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "server-events-stream",
+    "title": "Server events in the Redis Stream",
+    "shows": "Trusted events (order_placed, checkout_failed) are appended by the API to the events:ingest stream with XADD, capped with MAXLEN ~ 100000. The ingest worker (Phase 5) moves them into MongoDB.",
+    "reportSection": "6. Implementation: telemetry ingestion",
+    "file": "04-checkout/server-events-stream.md",
+    "capturedAt": "2026-09-27T18:30:53.116Z"
+  },
+  {
+    "phase": "04-checkout",
+    "name": "transaction-rollback",
+    "title": "Multi-document transaction rollback",
+    "shows": "Inside a transaction the charger's stock is decremented, then the phone turns out to be sold out. Aborting rolls the charger back: all-or-nothing (ACID atomicity).",
+    "reportSection": "7. Characteristics: ACID transactions",
+    "file": "04-checkout/transaction-rollback.md",
+    "capturedAt": "2026-09-27T18:30:52.272Z"
   }
 ]

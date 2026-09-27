@@ -5,6 +5,7 @@ import { catalogRouter } from "./routes/catalog";
 import { authRouter } from "./routes/auth";
 import { cartRouter } from "./routes/cart";
 import { staffRouter } from "./routes/staff";
+import { checkoutRouter } from "./routes/checkout";
 import { attachSession } from "./middleware/session";
 import { errorHandler, notFound } from "./lib/http";
 
@@ -27,6 +28,7 @@ export function createApp({ mongo, redis }: { mongo: Connection; redis: Redis })
   app.use("/api", catalogRouter);
   app.use("/api", authRouter(redis));
   app.use("/api", cartRouter(redis));
+  app.use("/api", checkoutRouter(redis));
   app.use("/api", staffRouter(redis));
 
   app.use("/api", notFound);

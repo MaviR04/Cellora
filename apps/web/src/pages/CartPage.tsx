@@ -73,9 +73,9 @@ export function CartPage() {
           <span className="text-slate-500">Delivery</span>
           <span className="text-slate-500">Calculated at checkout</span>
         </div>
-        <button disabled title="Checkout arrives in Phase 4" className="mt-6 w-full rounded-full bg-slate-900 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+        <Link to="/checkout" className="mt-6 block w-full rounded-full bg-slate-900 py-3 text-center text-sm font-semibold text-white hover:bg-slate-700">
           Checkout
-        </button>
+        </Link>
         {!user && (
           <p className="mt-3 text-center text-xs text-slate-500">
             <Link to="/login?next=/cart" className="text-accent-600 hover:underline">

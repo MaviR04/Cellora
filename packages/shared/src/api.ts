@@ -70,3 +70,33 @@ export interface Cart {
   itemCount: number;
   subtotal: number;
 }
+
+export interface OrderItem {
+  productId: string;
+  sku: string;
+  kind: ProductKind;
+  name: string;
+  brand: string;
+  variantLabel: string;
+  unitPrice: number;
+  qty: number;
+  lineTotal: number;
+}
+
+export interface Order {
+  _id: string;
+  orderNumber: string;
+  customerId: string | null;
+  contact: { name: string; email: string; phone?: string };
+  items: OrderItem[];
+  totals: { subtotal: number; shipping: number; total: number };
+  shippingAddress: { line1: string; line2?: string; city: string; postcode?: string; country: string };
+  payment: { method: "cod" | "card"; status: "pending" | "paid" };
+  status: "placed" | "paid" | "shipped" | "delivered" | "cancelled";
+  statusHistory: { status: string; at: string }[];
+  createdAt: string;
+}
+
+export type OrderSummary = Pick<Order, "_id" | "orderNumber" | "createdAt" | "status" | "totals"> & {
+  items: Pick<OrderItem, "name" | "qty">[];
+};

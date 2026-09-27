@@ -1,6 +1,7 @@
 import { foundation } from "./foundation";
 import { catalog } from "./catalog";
 import { authCart } from "./auth-cart";
+import { checkout } from "./checkout";
 
 export interface EvidenceSet {
   description: string;
@@ -12,4 +13,5 @@ export const sets: Record<string, EvidenceSet> = {
   foundation,
   catalog,
   "auth-cart": authCart,
+  checkout,
 };
