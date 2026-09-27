@@ -863,3 +863,39 @@ docker start mongo1                # it comes back as SECONDARY
 
 ### One-minute summary
 > I tested at three levels: unit tests for pure logic, a hand-made dataset with known answers for the funnel aggregation, and end-to-end scenarios. The key scenario kills MongoDB nodes under continuous load. When the primary crashes, the other two elect a new one in about 11 seconds and the application follows it with no failed requests. When two of three die, MongoDB refuses to elect a primary rather than risk inconsistent data (CP in CAP terms). Database requests fail, but telemetry is still accepted into the Redis stream, and not one event was lost once the nodes returned. Testing found real bugs: the worker crashing on database errors, unhandled promise rejections in timers, and a driver timeout shorter than an election. All three are fixed.
+
+---
+
+## Phase 10: The report, and how to defend it
+
+The report is `docs/report/report.md` (PDF: `npm run report:pdf`). Your university allows AI-drafted text **as long as you can defend it**, so treat the report as a map of what you must be able to explain. Every section points back to a study-guide phase:
+
+| Report section | What you must be able to explain | Study guide |
+|---|---|---|
+| 2 NoSQL background | Families with examples, ACID vs BASE, CAP (and PACELC), schema-on-read vs write, replication vs sharding | Phase 0–1 concepts, Phase 9 (CAP in practice) |
+| 3 Requirements | Why the Customer and Support actors were added; why PDPA and not GDPR | Phase 0, Phase 8 |
+| 4 Design | Why MongoDB, why Redis (the five jobs), why not Cassandra / Neo4j / Elasticsearch | Phase 0–1 |
+| 5 Data model | Embed vs reference with examples; time-series + `metaField` trade-off; identity stitching; ESR; the `_id.hour` COLLSCAN | Phases 2, 5, 6, 7, 8 |
+| 6 Implementation | Conditional update + transaction; the ingest loop and XACK-after-insert; the ordered funnel | Phases 4, 5, 7 |
+| 7 Characteristics | Tunable consistency table; eventual consistency evidence; HyperLogLog union | Phases 7, 8 |
+| 9 Strengths | The numbers: 30k/s, 144→2.2 ms, 1 of 20, 0 failed in failover | Phases 4, 5, 7, 9 |
+| 10 Limitations | Why erasure is hard; at-least-once duplicates; CP without majority; `$text` OR matching | Phases 5, 8, 9 |
+| 11 Evaluation | The relational comparison (be fair: Postgres would also work at this size); how to scale 100× | This section |
+
+### Numbers to know by heart
+- **1 × 201, 19 × 409**: twenty buyers, one unit. A naive read-then-write sells **18**.
+- **30,303 events/s** accepted by the API, **6,307/s** end to end.
+- Funnel **144 ms raw → 2.2 ms rollup** (65×); cache hit 2.5 ms; identical numbers.
+- **7.4 events per bucket**; time-series **9.4 MB vs 12.1 MB** on disk.
+- HyperLogLog **57 = 57 exact**; summing minutes gave **67**.
+- Failover: new primary in **~11 s**, **0 failed** requests, **0 lost** events. Majority loss: DB requests fail, telemetry **1,210 / 1,210** kept.
+- Funnel test: naive counting **50%**, true ordered funnel **17%**.
+
+### Likely challenges to the report, and answers
+- **"You say NoSQL is better, but couldn't PostgreSQL do this?"** Yes, at this size (§11.3 says so). NoSQL's advantages here are write decoupling, schema evolution, built-in replication/TTL and specialised structures. They grow with scale. Its weaknesses (integrity, ad-hoc queries, erasure) don't shrink.
+- **"Isn't your failover result just luck?"** It was run three times (10.3, 10.7, 11.4 s elections, 0 failures each time). And the test found a real bug (the timeout was shorter than an election).
+- **"Your numbers come from one laptop."** Yes, and the report says so. The *comparisons* (raw vs rollup, naive vs atomic, API vs end-to-end) are the point, not absolute throughput.
+- **"Why is the report so long?"** Check the word limit. Sections 8 and 11.3 are the easiest to trim.
+
+### Before submitting
+Fill the placeholders, check the word limit, verify references, re-check the PDPA status on dpa.gov.lk, rebuild the PDF and look through every page.

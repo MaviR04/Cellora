@@ -164,24 +164,25 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] 📸 Failover sequence (health page during / after, timeline table)
 - [x] Code freeze: tidy up, final README pass
 
-## Phase 10: Report · draft Tue 29, polish Wed 30 – Thu 1
+## Phase 10: Report · drafted Mon 28, polish Tue 29 – Thu 1
 
-Draft in Markdown under `docs/report/`, export to **PDF**.
+Draft: [`docs/report/report.md`](report/report.md). PDF: `npm run report:pdf` → `docs/report/report.pdf` (Mermaid diagrams and evidence screenshots embedded; draft notes stripped).
 
-- [ ] **1. Introduction:** business problem, objectives, scope
-- [ ] **2. NoSQL background:** definition and origins; families (document, key-value, wide-column, graph) with examples; ACID vs BASE; CAP theorem; schema-on-read vs schema-on-write
-- [ ] **3. Requirements:** actors, use case diagram (approved + extended), use case descriptions
-- [ ] **4. Solution design:** architecture diagram; technology selection with justification per use case; considered and rejected alternatives
-- [ ] **5. Data model:** document design, embed vs reference vs denormalise decisions, time-series design and `metaField` trade-off, indexes (ESR), Redis structures; SQL-equivalent comparison
-- [ ] **6. Implementation:** key features with screenshots + short code excerpts (checkout transaction, ingestion pipeline, funnel aggregation, TTL, identity stitching)
-- [ ] **7. Characteristics:** as demonstrated in the app: flexible schema, horizontal scale / replication, tunable consistency (write concerns, read preference), eventual consistency (rollups, cache), TTL, key-value speed
-- [ ] **8. Applications:** where NoSQL fits in industry (telemetry/IoT, catalogs, caching, sessions, real-time analytics) and where each appears in this app
-- [ ] **9. Strengths:** each backed by evidence from Phase 9 measurements
-- [ ] **10. Limitations:** each backed by evidence: no referential integrity, duplicate events (at-least-once), right-to-erasure (PDPA) across denormalised data, joins/ad-hoc analysis, transactions require replica set, storage cost of duplication, identity backfill race
-- [ ] **11. Evaluation:** testing results; comparison with an equivalent relational design; what I'd change at larger scale (sharding key, Redis Cluster, when Cassandra becomes justified)
-- [ ] **12. Conclusion & future work**
-- [ ] References (consistent citation style) + appendices (setup guide, API list)
-- [ ] Proofread, check figures are numbered and referenced, export PDF, check the PDF renders correctly
+- [x] **1. Introduction:** business problem, objectives, scope
+- [x] **2. NoSQL background:** definition and origins; families; ACID vs BASE; CAP and PACELC; schema-on-read vs schema-on-write; replication and sharding
+- [x] **3. Requirements:** actors, use case diagrams (approved + extended), use case table, non-functional requirements, legal context (PDPA)
+- [x] **4. Solution design:** architecture diagram; technology selection per use case; rejected alternatives; data flows; security
+- [x] **5. Data model:** principles, collections, polymorphic catalogue, order snapshots, time-series + `metaField` trade-off, identity stitching, rollups, indexing (ESR)
+- [x] **6. Implementation:** storefront, Redis carts/sessions, checkout (code), telemetry pipeline (code), funnel (code), dashboards, simulator
+- [x] **7. Characteristics** · **8. Applications** · **9. Strengths** (all with measurements) · **10. Limitations** (all with evidence)
+- [x] **11. Evaluation:** testing, traceability, relational comparison, reflection, scaling 100×
+- [x] **12. Conclusion & future work**, References (Harvard), Appendices (setup, API, evidence index)
+- [ ] Fill placeholders: name, student ID, module, lecturer
+- [ ] Check the brief's **word limit** (body ≈ 9,300 words incl. tables); trim §8 or §11.3 first if needed
+- [ ] Check every reference against the university's Harvard guide (page numbers, access dates)
+- [ ] Re-check dpa.gov.lk for new PDPA commencement orders before submitting
+- [ ] Read the whole report against the study guide: be able to defend every sentence
+- [ ] Final `npm run report:pdf`, open the PDF, check figures, tables and page breaks
 
 ## Phase 11: Submission & viva prep · Wed 30 – Fri 2
 

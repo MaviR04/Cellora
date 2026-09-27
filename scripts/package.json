@@ -10,9 +10,11 @@
     "shell": "tsx db/shell.ts",
     "seed-users": "tsx db/seed-users.ts",
     "sim:backfill": "tsx simulate/backfill.ts",
-    "sim:live": "tsx simulate/live.ts"
+    "sim:live": "tsx simulate/live.ts",
+    "report:pdf": "tsx report/build-pdf.ts"
   },
   "dependencies": {
+    "marked": "^18.0.14",
     "playwright": "^1.63.0"
   }
 }

@@ -23,7 +23,8 @@
     "db:seed-users": "npm run seed-users -w scripts",
     "sim:backfill": "npm run sim:backfill -w scripts --",
     "sim:live": "npm run sim:live -w scripts --",
-    "test": "node --import tsx --test --test-reporter=spec tests/unit/*.test.ts"
+    "test": "node --import tsx --test --test-reporter=spec tests/unit/*.test.ts",
+    "report:pdf": "npm run report:pdf -w scripts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

@@ -20,11 +20,11 @@ This document describes the system architecture, the technology choices and why 
 | Layer | Choice | Notes |
 |---|---|---|
 | Language | **TypeScript** (frontend and backend) | Shared event and DTO types between client and server |
-| Frontend | **React + Vite**, React Router, TanStack Query, Recharts | One app: storefront plus role-gated `/staff/*` routes |
-| Backend API | **Node.js 22 + Express** | REST API; request validation with **Zod** (schemas shared with frontend) |
+| Frontend | **React + Vite**, React Router, TanStack Query, Tailwind CSS | One app: storefront plus role-gated `/staff/*` routes; charts are small hand-drawn SVG components (no chart library) |
+| Backend API | **Node.js 22 + Express 5** | REST API; request validation with **Zod** (schemas shared with frontend) |
 | Primary database | **MongoDB 7** (3-node replica set) | Mongoose for catalog/users/orders; native driver for time-series and aggregations |
 | Secondary store | **Redis 7** | Streams, counters, cache, carts, sessions |
-| Background work | **Node worker process** | Stream consumer + scheduled rollups (`node-cron`) |
+| Background work | **Node worker process** | Stream consumer + rollup scheduler (a 15 s timer; interval from `settings`) |
 | Local infrastructure | **Docker Compose** | MongoDB replica set and Redis |
 | Repo layout | **npm workspaces** monorepo | See §12 |
 
@@ -42,7 +42,7 @@ This document describes the system architecture, the technology choices and why 
 | Orders with a price snapshot of their line items | Embedded sub-documents | UC11, UC13 |
 | Atomic stock decrement + order creation | Multi-document ACID transactions (requires replica set) | UC11 |
 | Append-heavy event data queried by time range | **Time-series collection** (`events`) | UC1, UC12 |
-| Funnels and reports | Aggregation pipeline (`$match`, `$group`, `$setWindowFields`) | UC2, UC3 |
+| Funnels and reports | Aggregation pipeline (`$match`, `$group` with `$min`/`$cond`, `$facet`, `$lookup`) | UC2, UC3 |
 | Pre-computed dashboards | `$merge` into rollup collections | UC6 |
 | Automatic data expiry | `expireAfterSeconds` on time-series collection, changed with `collMod` | UC5 |
 | High availability, health visibility | Replica set, `replSetGetStatus`, `serverStatus` | UC7 |
@@ -84,7 +84,7 @@ flowchart LR
 
     API[Node API<br/>Express]
 
-    subgraph Redis[(Redis)]
+    subgraph Redis["Redis"]
         RS[Stream<br/>events:ingest]
         RC[Counters / HLL]
         RK[Cache]
@@ -92,7 +92,7 @@ flowchart LR
         RSE[Sessions]
     end
 
-    subgraph Mongo[(MongoDB replica set)]
+    subgraph Mongo["MongoDB replica set"]
         MP[(Primary)]
         MS1[(Secondary)]
         MS2[(Secondary)]
@@ -121,11 +121,11 @@ flowchart LR
 | Component | Responsibility |
 |---|---|
 | **Storefront** (React) | Browse, search, cart, checkout. Embeds the telemetry tracker. |
-| **Telemetry tracker** (React module) | Buffers client events, flushes every few seconds or at 20 events, and on page hide via `navigator.sendBeacon`. Attaches `anonymousId`, `sessionId`, `customerId` (if logged in). |
-| **Staff dashboard** (React) | Role-gated routes: `/staff/analytics` (Analyst), `/staff/support` (Support), `/staff/admin` (Admin). |
+| **Telemetry tracker** (React module) | Buffers client events, flushes every few seconds or at 20 events, and on page hide via `navigator.sendBeacon`. Attaches `anonymousId` and `sessionId`; the API adds `customerId` from the server-side session (never trusted from the browser). |
+| **Staff dashboard** (React) | Role-gated routes: `/staff/live`, `/staff/funnel`, `/staff/trends` (Analyst), `/staff/support/*` (Support), `/staff/admin/*` (Admin; also sees the others). |
 | **API** (Node/Express) | Auth, catalog, cart, checkout, staff queries. Validates events with Zod and appends to the Redis Stream. Emits **server-side** events for trusted actions (`order_placed`, `checkout_failed`). |
-| **Ingest worker** (Node) | Consumes the stream in a consumer group, bulk-inserts into `events`, updates real-time counters, acknowledges entries. |
-| **Rollup job** (in worker, `node-cron`) | Aggregates recent events into `metrics_hourly` and `funnel_daily` via `$merge`. |
+| **Ingest worker** (Node) | Consumes the stream in a consumer group, bulk-inserts into `events`, updates real-time counters, acknowledges entries. On a database error it keeps the batch pending and retries (tested by killing MongoDB nodes, Phase 9). |
+| **Rollup job** (in the worker, timer-driven) | Aggregates recent events into `session_summaries`, `metrics_hourly` and `funnel_daily` via `$merge`, incrementally every 5 min; full rebuild on request. |
 | **Traffic simulator** (Node script) | Generates thousands of synthetic shopper sessions with configurable drop-off probabilities per funnel step, so dashboards have realistic data for the demo. |
 
 ---

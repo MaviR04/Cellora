@@ -3,3 +3,7 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Report build output (regenerate with npm run report:pdf)
+docs/report/report.html
+docs/report/report.pdf
