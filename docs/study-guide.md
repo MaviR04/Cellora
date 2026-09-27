@@ -516,3 +516,72 @@ db.events.stats().timeseries          // buckets, bucket count, compression deta
 
 ### One-minute summary
 > The browser batches telemetry to `/api/events`. The API validates each event, enriches it with device and server-side identity, appends it to a Redis Stream and replies 202, so ingestion never slows the store. A worker in a consumer group reads the stream in batches of up to 500, bulk-inserts into MongoDB's time-series collection, updates per-minute counters and HyperLogLogs for "active now", links anonymous events to the customer after login, and only then acknowledges. That gives at-least-once delivery with crash recovery through `XAUTOCLAIM`, and best-effort de-duplication. On a laptop it accepted 30k events/s and stored 6.3k/s.
+
+---
+
+## Phase 6: Traffic simulator
+
+### Concepts
+
+**Why simulate at all?** Analytics needs volume. An empty dashboard proves nothing, and performance claims about indexes, rollups and caching only mean something with real data sizes. The simulator produced **~13,000 sessions, ~99,000 events and ~600 orders over 14 days**.
+
+**It uses the real pipeline, not a shortcut.**
+- **Backfill mode** builds historical sessions and `XADD`s their events into the **same Redis Stream**, so the **same worker** ingests them (including identity stitching). Events are validated with the **same Zod schemas** as the API.
+- **Live mode** goes further: simulated shoppers call the real HTTP API (search, cart, login, checkout), so orders, stock and server events are all genuine.
+- Simulated records are flagged (`events.sim: true`, `orders.simulated: true`, users `sim-NNN@cellora.test`) so they can be removed with `--reset`. Honest labelling of test data is itself a good practice to mention.
+
+**Backpressure (worth explaining in the viva).**
+- The stream is capped at `MAXLEN ~ 100000`. If the simulator pushed faster than the worker reads, Redis would **trim entries that were never processed**: silent data loss.
+- So the backfill checks the consumer group's lag (`XINFO GROUPS`) and pauses while more than 30,000 entries are waiting.
+- **Report angle:** a capped stream trades memory safety for possible loss under sustained overload. That's a real *limitation*, and why systems like Kafka keep data on disk with retention by time instead.
+
+**The behaviour model** ([scripts/simulate/model.ts](../scripts/simulate/model.ts)):
+- **Funnel probabilities:**
+  - 25% of sessions bounce after the landing page.
+  - Each viewed product is added to the cart with a 5% chance on mobile and 8.5% on desktop; returning customers are more likely.
+  - 50% of carts reach checkout, and 80% of those submit payment.
+  - Of submitted payments, 90% succeed, 6% are declined and 4% hit sold-out stock.
+- **Result:** ~4.7% of sessions order. That's realistic for e-commerce, where 2–5% is typical.
+- **Shape:**
+  - traffic peaks in the Sri Lankan evening, weekends are 25% busier, and a promotion day has 1.8× the traffic
+  - devices are 62% mobile, 32% desktop and 6% tablet
+  - after viewing a phone, shoppers often look at an accessory that fits it
+- **Seeded randomness:** the same seed produces the same dataset, so results are reproducible.
+
+**What the data revealed** (evidence you can quote):
+- **Time-series storage:** buckets hold on average only **7.4 events**, so it's just ~22% smaller on disk than a regular collection (9.4 MB vs 12.1 MB). The indexes are *larger*: four secondary indexes vs `_id` only.
+  - That's the **metaField cardinality trade-off**: `sessionId` in `meta` means every session gets its own buckets. You'd get far better compression with low-cardinality meta (e.g. `type`), but then session timelines and GDPR deletes by customer would be expensive.
+  - It's a design decision with a measured cost. Excellent limitations material.
+- **Text search limitation:** "iphone 17" (a phone the store doesn't sell) returns **25 results**, because `$text` matches *any* word and "iphone" alone matches every iPhone. There's no phrase matching or typo tolerance, which is where a dedicated search engine would come in.
+- **Raw-aggregation baseline:** funnel counts computed by scanning all 99k events take a median of **~106 ms**, and that grows linearly as data grows. Phase 7 will beat this with rollups and a cache.
+
+### Read these files
+1. [scripts/simulate/model.ts](../scripts/simulate/model.ts): `FUNNEL`, `planSession`. Understand how a session is planned.
+2. [scripts/simulate/backfill.ts](../scripts/simulate/backfill.ts): `sessionEvents` (plan → events + order), the `lag()` backpressure loop, order numbers from the shared counter.
+3. [scripts/simulate/live.ts](../scripts/simulate/live.ts): the same plan replayed through real API calls.
+
+### Try it yourself
+```bash
+npm run sim:live -- --rate 30 --speed 0.05 --minutes 2      # watch the worker log ingest in real time
+```
+```js
+// npm run db:shell
+db.events.countDocuments()
+db.events.countDocuments({ sim: true })
+db.events.aggregate([{ $match: { type: "search", "props.resultCount": 0 } }, { $group: { _id: "$props.query", n: { $sum: 1 } } }])
+db.orders.aggregate([{ $group: { _id: "$status", n: { $sum: 1 } } }])
+db.events.aggregate([{ $collStats: { storageStats: {} } }]).next().storageStats.timeseries.bucketCount
+```
+
+### Viva questions
+- **"Where does your data come from?"** A seeded behaviour simulator: backfill pushes through the real stream and worker, and live mode uses the real HTTP API. It's clearly flagged as simulated and removable.
+- **"How realistic is it?"** Funnel rates from typical e-commerce ranges (~4.7% conversion), mobile-first device mix, evening peaks, a promo spike, catalog-aware browsing. But it's still a model, so real users would be messier.
+- **"What would happen if you pushed events faster than the worker could process them?"** The stream grows; beyond `MAXLEN` the oldest entries are trimmed even if unread (data loss). Hence the backpressure, and more consumers or a disk-based log (Kafka) at scale.
+- **"Did the time-series collection compress well?"** Only ~22% smaller, because high-cardinality `sessionId` in `meta` gives small buckets (7.4 events each). That trade-off was chosen to make session timelines and per-customer deletes cheap.
+- **"Any limitation you discovered?"** Text search OR-matching ("iphone 17" returns 25 iPhones).
+
+### Evidence
+`evidence/06-simulator/`: daily volume and conversion, event/device/search breakdowns, raw-aggregation baseline, time-series vs regular storage.
+
+### One-minute summary
+> A seeded simulator generated two weeks of realistic traffic (13k sessions, 99k events, 600 orders, about 4.7% conversion, mobile-first) and pushed it through the real Redis Stream and worker, with backpressure so the capped stream never drops unprocessed events. A live mode drives real shoppers through the HTTP API for demos. The data exposed two honest limitations: time-series buckets are small (7.4 events) because of the high-cardinality metaField, so compression is modest, and `$text` search matches any word. It also set a 106 ms baseline for raw funnel aggregation, which the Phase 7 rollups will improve on.

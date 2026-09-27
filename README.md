@@ -44,6 +44,8 @@ npm run dev:web         # http://localhost:5173  (storefront)
 | `npm run dev:worker` | Background worker (stream consumer, rollups) |
 | `npm run db:shell` | mongosh as the app user (`-- --analyst` for the read-only user) |
 | `npm run redis:cli` | redis-cli inside the Redis container |
+| `npm run sim:backfill -- --days 14 --per-day 900` | Generate historical traffic through the pipeline (worker must run); `-- --reset` removes it |
+| `npm run sim:live -- --rate 12 --minutes 10` | Live simulated shoppers using the real API (for demos) |
 | `npm run typecheck` | Type-check all workspaces |
 | `npm run evidence -- --list` | List evidence capture sets |
 | `npm run evidence -- <set>` | Capture report evidence into `evidence/` |
@@ -58,6 +60,7 @@ apps/worker       Redis Stream consumer + rollup jobs
 apps/web          React storefront + staff dashboard
 packages/shared   Zod schemas and types shared by all apps (server-only helpers under /server)
 scripts/db        Database bootstrap
+scripts/simulate  Traffic simulator (backfill + live)
 scripts/evidence  Evidence capture (command output + Playwright screenshots)
 infra             Docker Compose
 docs              Design documents

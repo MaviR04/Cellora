@@ -107,9 +107,10 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 6: Traffic simulator · Mon 28
 
-- [ ] `scripts/simulate-traffic.ts`: N synthetic sessions with configurable drop-off per funnel step, device mix, guest vs logged-in mix, some out-of-stock failures
-- [ ] Backfill mode: generate historical days (so funnels/trends have data); live mode: steady trickle for "real-time" widgets
-- [ ] 📸 Collection stats after load (`events` document count, storage size, compression ratio from `collStats`)
+- [x] Traffic model (`scripts/simulate/model.ts`): funnel drop-off per step, bounces, device mix, guest / returning / logging-in customers, accessory-after-phone browsing, zero-result searches, declined and sold-out checkouts; 150 simulated customers
+- [x] Backfill mode (`npm run sim:backfill`): 14 days / ~13k sessions / ~99k events / ~600 orders through the real Redis Stream + worker, with backpressure; `--reset` removes simulated data
+- [x] Live mode (`npm run sim:live`): real sessions through the HTTP API (cart, login, checkout, telemetry)
+- [x] 📸 `simulator` set: daily volume, behaviour breakdowns, raw-aggregation baseline (for Phase 7), time-series vs regular collection storage
 
 ## Phase 7: Rollups · Tue 29
 
