@@ -367,5 +367,41 @@
     "reportSection": "7. Characteristics: time-series collections / 10. Limitations: metaField cardinality",
     "file": "06-simulator/timeseries-storage.md",
     "capturedAt": "2026-09-27T18:55:48.789Z"
+  },
+  {
+    "phase": "07-rollups",
+    "name": "eventual-consistency",
+    "title": "Eventual consistency: raw events vs rollup",
+    "shows": "A new order reaches the raw events collection within about a second (via the stream and worker) but the funnel rollup still shows the old number until its next run. After the rollup runs, both agree. This is the staleness window accepted for analytics.",
+    "reportSection": "7. Characteristics: eventual consistency (BASE)",
+    "file": "07-rollups/eventual-consistency.md",
+    "capturedAt": "2026-09-27T19:06:36.937Z"
+  },
+  {
+    "phase": "07-rollups",
+    "name": "raw-vs-rollup-vs-cache",
+    "title": "Funnel: raw events vs rollup vs Redis cache",
+    "shows": "The same 14-day ordered funnel computed three ways. The rollup gives identical numbers to the raw aggregation but reads 14 small documents instead of 93,994 events; the Redis cache avoids MongoDB entirely.",
+    "reportSection": "9. Strengths: pre-aggregation & caching / 11. Evaluation: performance",
+    "file": "07-rollups/raw-vs-rollup-vs-cache.md",
+    "capturedAt": "2026-09-27T19:06:35.451Z"
+  },
+  {
+    "phase": "07-rollups",
+    "name": "rollup-documents",
+    "title": "Rollup documents: a session summary and a day of hourly activity",
+    "shows": "session_summaries gives Support one small document per session (landing page, device, funnel steps reached, orders). metrics_hourly gives the Analyst ready-made time series; here the evening peak in Sri Lanka is visible.",
+    "reportSection": "5. Data model: materialised views",
+    "file": "07-rollups/rollup-documents.md",
+    "capturedAt": "2026-09-27T19:06:36.229Z"
+  },
+  {
+    "phase": "07-rollups",
+    "name": "rollup-run-cost",
+    "title": "Rollup run cost: full rebuild vs incremental",
+    "shows": "Each rollup is an aggregation ending in $merge (upsert into the target collection). The worker runs them incrementally every 5 minutes, recomputing only the recent window, so the cost stays small as history grows. A full rebuild is only needed after a logic change (Admin: UC6).",
+    "reportSection": "6. Implementation: rollups / 11. Evaluation",
+    "file": "07-rollups/rollup-run-cost.md",
+    "capturedAt": "2026-09-27T19:06:36.221Z"
   }
 ]

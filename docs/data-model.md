@@ -258,6 +258,8 @@ One document per session, rebuilt from `events` by the rollup job with `$merge` 
 
 ### 4.6 `metrics_hourly`: rollup
 
+Hours are **Sri Lanka local hours** (UTC+5:30), so each bucket starts at `hh:30` UTC. `$dateTrunc`'s timezone option doesn't honour half-hour offsets for hourly units, so the pipeline shifts timestamps by +330 minutes, truncates, and shifts back.
+
 ```json
 { "_id": { "hour": { "$date": "2026-09-27T14:00:00Z" }, "type": "product_view" },
   "count": 1832, "uniqueSessions": 611 }

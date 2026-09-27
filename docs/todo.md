@@ -114,12 +114,13 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 7: Rollups · Tue 29
 
-- [ ] `session_summaries` rollup (`$merge`, replace)
-- [ ] `metrics_hourly` rollup
-- [ ] `funnel_daily` rollup (ordered funnel pipeline, data-model §11)
-- [ ] ⭐ `byDevice` funnel breakdown
-- [ ] Schedule with `node-cron` in worker (interval from `settings`)
-- [ ] 📸 Query time: funnel from raw `events` vs from `funnel_daily` vs Redis cache hit
+- [x] `session_summaries` rollup (`$merge`, replace)
+- [x] `metrics_hourly` rollup (Sri Lanka local-hour buckets: UTC+5:30 needs explicit shifting, `$dateTrunc` ignores half-hour offsets)
+- [x] `funnel_daily` rollup (ordered funnel pipeline, data-model §11), per local day
+- [x] ⭐ `byDevice` funnel breakdown
+- [x] Scheduled in the worker: incremental every `settings.rollupIntervalMin` (5) minutes with a 10-minute overlap; full rebuild when empty or when Admin sets `rollups:rebuild`; last run recorded in `settings` (`_id: "rollups"`)
+- [x] `GET /api/analytics/funnel` (analyst/admin, read-only analyst connection, Redis read-through cache 60 s)
+- [x] 📸 `rollups` set: rollup = raw (correctness), raw 144 ms vs rollup 2.2 ms vs cache hit 2.5 ms (API), run cost, sample docs, eventual consistency observed
 
 ## Phase 8: Staff dashboards · Tue 29
 

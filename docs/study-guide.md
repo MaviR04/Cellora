@@ -585,3 +585,94 @@ db.events.aggregate([{ $collStats: { storageStats: {} } }]).next().storageStats.
 
 ### One-minute summary
 > A seeded simulator generated two weeks of realistic traffic (13k sessions, 99k events, 600 orders, about 4.7% conversion, mobile-first) and pushed it through the real Redis Stream and worker, with backpressure so the capped stream never drops unprocessed events. A live mode drives real shoppers through the HTTP API for demos. The data exposed two honest limitations: time-series buckets are small (7.4 events) because of the high-cardinality metaField, so compression is modest, and `$text` search matches any word. It also set a 106 ms baseline for raw funnel aggregation, which the Phase 7 rollups will improve on.
+
+---
+
+## Phase 7: Rollups (pre-aggregation) & caching
+
+### Concepts
+
+**The problem.** Dashboards ask the same big questions again and again ("how many sessions reached checkout in the last 14 days?"). Answering from raw events means scanning ~94,000 documents every time, and that cost **grows with every event**. At a million events a day it would become unusable.
+
+**The NoSQL answer: pre-compute (materialised views).**
+- A background job periodically aggregates raw events into small summary collections.
+- Dashboards read those instead. The work is done once per interval, not once per page view.
+
+| Rollup | One document per… | Used by |
+|---|---|---|
+| `session_summaries` | session (landing page, device, steps reached, orders) | Support session lists (UC12) |
+| `metrics_hourly` | local hour × event type (count, distinct sessions) | Analyst trends (UC1, UC3) |
+| `funnel_daily` | day (ordered funnel, overall + per device) | Analyst funnel (UC2) |
+
+**How: aggregation + `$merge`.**
+- Each rollup is one aggregation pipeline over `events` ending in **`$merge`**, which *upserts* each result into the target collection: `whenMatched: "replace"`, `whenNotMatched: "insert"`.
+- The whole thing runs **inside the database**; no data travels to Node.
+
+**Incremental, not full.**
+- Every 5 minutes the worker recomputes only the recent window (from the last run, minus a 10-minute overlap for late-arriving events).
+- Buckets are always recomputed *whole* (whole hours, whole days). Recomputing half a bucket would overwrite it with a partial count. I hit exactly this bug with Sri Lanka's +5:30 offset, and fixed it by shifting into local time before truncating.
+- **Evidence:** full rebuild ~500 ms, incremental ~30 ms. The cost tracks new data, not total history.
+
+**The ordered funnel** (the most complex query; know it):
+1. `$match` the four funnel event types.
+2. `$group` by session: the **first time** it did each step (`$min` of a `$cond`; `$min` ignores nulls).
+3. `$set` s1…s4: a step only counts if the **previous step happened earlier** (`$gte` on the timestamps).
+4. `$group` by local day and device and sum, then `$group` by day into `steps` + `byDevice`.
+5. `$merge` into `funnel_daily`.
+- **SQL equivalent:** window functions or several self-joins on an events table. Here it's one pipeline over one collection.
+
+**Caching layer (Redis).**
+- `GET /api/analytics/funnel` first checks `cache:funnel:{hash of params}`. On a miss it reads the rollup, stores the JSON with a **60-second TTL**, and returns it. That's a *read-through cache*.
+- **Evidence (14-day funnel):**
+
+| Path | Median |
+|---|---|
+| raw pipeline over 94k events | 144 ms |
+| reading 14 rollup docs | 2.2 ms (65× faster) |
+| API cache miss | 14 ms |
+| API cache hit | 2.5 ms |
+| bare Redis GET | 0.2 ms |
+
+- The rollup matches the raw computation **exactly** at every step (correctness evidence).
+
+**Eventual consistency: the price you pay.**
+- Rollups are up to 5 minutes stale, and the cache adds up to 60 s.
+- **Evidence:** a new order appears in raw events within about a second, the rollup still shows 8 orders, and after the next rollup run both show 9.
+- That's **BASE** (eventually consistent) and is fine for analytics. For money and stock we use transactions instead (Phase 4). **Choosing consistency per use case** is the key idea.
+
+**The analyst reads from a secondary.** Analytics runs on the `da2_analyst` connection (`secondaryPreferred`, read-only), so dashboard load never competes with checkouts on the primary. That's another form of the consistency trade-off (replication lag), and another use of the replica set.
+
+### Read these files
+1. [apps/worker/src/rollups.ts](../apps/worker/src/rollups.ts): the three pipelines. **Understand `funnelPipeline` step by step.**
+2. [apps/worker/src/index.ts](../apps/worker/src/index.ts): the scheduler (incremental interval, full rebuild on demand).
+3. [apps/api/src/lib/cache.ts](../apps/api/src/lib/cache.ts): the read-through cache in ~10 lines.
+4. [apps/api/src/routes/analytics.ts](../apps/api/src/routes/analytics.ts): reads the rollup through the analyst connection, behind the cache.
+
+### Try it yourself
+```js
+// npm run db:shell
+db.funnel_daily.find().sort({ _id: -1 }).limit(1)
+db.session_summaries.find({ "reached.orderPlaced": true }).limit(1)
+db.metrics_hourly.find({ "_id.type": "order_placed" }).sort({ "_id.hour": -1 }).limit(5)
+db.settings.findOne({ _id: "rollups" })          // when the worker last ran them, and how long it took
+```
+```bash
+npm run redis:cli
+KEYS cache:*            # after opening the analyst funnel (Phase 8) or calling the API
+TTL <one of the keys>   # counts down from 60
+SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its log)
+```
+
+### Viva questions
+- **"Why not just query the raw events for the dashboard?"** It works now (144 ms) but grows linearly with data. Rollups turn it into reading a few small documents (2.2 ms), whatever the history size. Pre-aggregation is a standard NoSQL analytics pattern.
+- **"What is `$merge`?"** The aggregation stage that writes results into a collection with upsert semantics, so an aggregation can maintain a materialised view incrementally.
+- **"How do you know the rollups are correct?"** The evidence compares the same funnel from raw events and from rollups: identical at all four steps.
+- **"What's the downside?"** Staleness (up to one interval plus cache TTL), extra storage, and another moving part (the scheduler), plus a rebuild if the logic changes. Show the eventual-consistency evidence.
+- **"Explain your funnel query."** First-time-per-step with `$min`/`$cond`; ordered via timestamp comparisons; grouped by day and device; merged.
+- **"Why is the cache TTL 60 seconds?"** It bounds staleness while absorbing repeated dashboard loads. Rollups only change every 5 minutes anyway, so a longer TTL would add staleness without much benefit.
+
+### Evidence
+`evidence/07-rollups/`: raw vs rollup vs cache (with the correctness check), rollup run cost, sample rollup documents (hourly curve with the evening peak), eventual consistency observed.
+
+### One-minute summary
+> Dashboards don't scan raw events. The worker maintains three materialised views (session summaries, hourly metrics and an ordered daily funnel) using aggregation pipelines that end in `$merge`, recomputing only the recent window every 5 minutes. The API reads them through the read-only analyst connection from a secondary node, behind a 60-second Redis read-through cache. The 14-day funnel drops from 144 ms (raw) to 2.2 ms (rollup) or 2.5 ms (cache hit through the API), with identical numbers. The trade-off is eventual consistency, and the evidence shows a new order appearing in the rollup only after its next run.

@@ -4,6 +4,7 @@ import { authCart } from "./auth-cart";
 import { checkout } from "./checkout";
 import { telemetry } from "./telemetry";
 import { simulator } from "./simulator";
+import { rollups } from "./rollups";
 
 export interface EvidenceSet {
   description: string;
@@ -18,4 +19,5 @@ export const sets: Record<string, EvidenceSet> = {
   checkout,
   telemetry,
   simulator,
+  rollups,
 };

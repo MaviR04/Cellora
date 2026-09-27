@@ -100,3 +100,27 @@ export interface Order {
 export type OrderSummary = Pick<Order, "_id" | "orderNumber" | "createdAt" | "status" | "totals"> & {
   items: Pick<OrderItem, "name" | "qty">[];
 };
+
+export const FUNNEL_STEPS = ["product_view", "add_to_cart", "checkout_started", "order_placed"] as const;
+export type FunnelStep = (typeof FUNNEL_STEPS)[number];
+
+export interface FunnelStepResult {
+  step: FunnelStep;
+  sessions: number;
+  /** Share of the previous step (1 for the first step). */
+  fromPrevious: number;
+  /** Share of the first step. */
+  fromStart: number;
+}
+
+export interface FunnelResponse {
+  from: string;
+  to: string;
+  device: string | null;
+  steps: FunnelStepResult[];
+  byDay: { day: string; steps: number[] }[];
+  byDevice: Record<string, number[]>;
+  source: "rollup";
+  cached: boolean;
+  computedAt: string;
+}
