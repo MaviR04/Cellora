@@ -23,10 +23,11 @@ npm run db:seed         # 80 products (replaces the catalog)
 npm run db:seed-users   # demo accounts: admin/analyst/support/customer@cellora.test (password: SEED_USER_PASSWORD)
 ```
 
-Then run the API and the web app in two terminals:
+Then run these in three terminals:
 
 ```bash
 npm run dev:api         # http://localhost:4000
+npm run dev:worker      # moves telemetry from the Redis Stream into MongoDB
 npm run dev:web         # http://localhost:5173  (storefront)
 ```
 
