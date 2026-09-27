@@ -15,7 +15,9 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:worker": "npm run dev -w apps/worker",
     "evidence": "npm run evidence -w scripts --",
-    "typecheck": "tsc -p packages/shared && tsc -p apps/api && tsc -p apps/worker && tsc -p scripts"
+    "typecheck": "tsc -p packages/shared && tsc -p apps/api && tsc -p apps/worker && tsc -p scripts && tsc -p apps/web",
+    "db:seed": "npm run seed -w scripts",
+    "dev:web": "npm run dev -w apps/web"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

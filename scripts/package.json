@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "bootstrap": "tsx db/bootstrap.ts",
-    "evidence": "tsx evidence/cli.ts"
+    "evidence": "tsx evidence/cli.ts",
+    "seed": "tsx db/seed-catalog.ts"
   },
   "dependencies": {
     "playwright": "^1.63.0"

@@ -63,13 +63,15 @@ End-to-end plan for the assignment: application **and** report, through to the v
 
 ## Phase 2: Catalog & storefront · Sun 27 (seed + API), Mon 28 (UI)
 
-- [ ] Mongoose `Product` base model + 7 discriminators
-- [ ] Seed script: ~60–100 real products; accessories linked to seeded `modelKey`s
-- [ ] API: list/filter by kind, brand and price; product by slug; text search; "compatible accessories" for a phone
-- [ ] React (Vite) app shell, routing, layout
-- [ ] Pages: home, category listing with filters, search results, product page (variant picker + compatible accessories)
-- [ ] 📸 Two very different product documents side by side (phone vs screen protector): the flexible-schema evidence
-- [ ] 📸 `explain("executionStats")` for category + search queries (IXSCAN, keys vs docs examined)
+- [x] Mongoose `Product` base model + 7 discriminators
+- [x] Seed script: 80 real products / 173 SKUs (approximate LKR prices); accessories linked to seeded `modelKey`s; 3 SKUs seeded with stock 1 for the race test
+- [x] API: categories, list/filter by kind, brand and price, `$facet` filters, product by slug, weighted text search, two-way compatibility (`/related`)
+- [x] React (Vite) app shell, routing, layout (Tailwind)
+- [x] Pages: home, category listing with filters, search results, product page (variant picker, per-kind spec table, compatible accessories)
+- [x] 📸 Two very different product documents side by side (phone vs screen protector): the flexible-schema evidence
+- [x] 📸 `$jsonSchema` validation: new attribute accepted, invalid documents rejected
+- [x] 📸 `explain("executionStats")` for 5 catalog queries vs forced COLLSCAN
+- [x] 📸 Storefront screenshots (home, listing, filtered listing, phone page, accessory page, search)
 
 ## Phase 3: Auth, sessions & cart · Mon 28
 

@@ -13,3 +13,17 @@ Screenshots, command output and measurements captured for the report.
 | [Running containers](01-foundation/docker-compose-ps.md) | Three MongoDB nodes and Redis running and healthy in Docker. | 4. Solution design: deployment | 2026-09-27 12:05 |
 | [Redis persistence configuration](01-foundation/redis-persistence.md) | Redis runs with append-only-file persistence, fsync every second (at most ~1 s of data at risk). | 10. Limitations: Redis durability | 2026-09-27 12:05 |
 | [Replica set status (rs0)](01-foundation/replica-set-status.md) | A 3-member replica set with one PRIMARY and two SECONDARY nodes, the basis for replication, failover and multi-document transactions. | 7. Characteristics: replication & availability | 2026-09-27 12:05 |
+
+## 02-catalog
+
+| Evidence | Shows | Report section | Captured |
+|---|---|---|---|
+| [Two product kinds in one collection](02-catalog/polymorphic-documents.md) | A phone (22 top-level fields) and a screen protector (14 fields) stored side by side in `products`. Each document carries only its own attributes: no NULL columns, no EAV table, no migration per product type. | 7. Characteristics: flexible schema | 2026-09-27 12:17 |
+| [Catalog query plans (explain executionStats)](02-catalog/query-plans.md) | Each storefront query is served by the index designed for it (IXSCAN / TEXT_MATCH), examining only the matching documents; the forced collection scan reads every document for the same result. | 5. Data model: indexing (ESR) / 9. Strengths | 2026-09-27 12:17 |
+| [Schema validation on the products collection](02-catalog/schema-validation.md) | The $jsonSchema validator enforces only the shared base fields (kind, price, stock >= 0...). A new, kind-specific attribute is accepted without a migration, while invalid data is rejected by the database itself. | 7. Characteristics: schema-on-write vs flexible schema | 2026-09-27 12:17 |
+| [Storefront: filtered cases](02-catalog/storefront-category-filtered.png) | Cases filtered by brand and price; filters are held in the URL and served by indexed queries. | 6. Implementation | 2026-09-27 12:17 |
+| [Storefront: phones listing](02-catalog/storefront-category-phones.png) | Phones listing sorted by price, with brand and price facets computed by a $facet aggregation. | 6. Implementation | 2026-09-27 12:17 |
+| [Storefront: home](02-catalog/storefront-home.png) | Home page with category tiles (per-kind counts and starting prices from an aggregation). | 6. Implementation | 2026-09-27 12:17 |
+| [Storefront: accessory product page](02-catalog/storefront-product-accessory.png) | A case uses the same page template with a completely different spec table, plus the reverse lookup: which phones it fits. | 6. Implementation: flexible schema in the UI | 2026-09-27 12:17 |
+| [Storefront: phone product page](02-catalog/storefront-product-phone.png) | Phone page with storage/colour variants, phone-specific specs, and compatible accessories matched by model, connector and platform. | 6. Implementation: flexible schema in the UI | 2026-09-27 12:17 |
+| [Storefront: search](02-catalog/storefront-search.png) | Full-text search ranked by weighted textScore (name > brand > description). | 6. Implementation | 2026-09-27 12:17 |

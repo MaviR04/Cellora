@@ -52,5 +52,86 @@
     "reportSection": "7. Characteristics: replication & availability",
     "file": "01-foundation/replica-set-status.md",
     "capturedAt": "2026-09-27T12:05:23.120Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "polymorphic-documents",
+    "title": "Two product kinds in one collection",
+    "shows": "A phone (22 top-level fields) and a screen protector (14 fields) stored side by side in `products`. Each document carries only its own attributes: no NULL columns, no EAV table, no migration per product type.",
+    "reportSection": "7. Characteristics: flexible schema",
+    "file": "02-catalog/polymorphic-documents.md",
+    "capturedAt": "2026-09-27T12:17:19.013Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "query-plans",
+    "title": "Catalog query plans (explain executionStats)",
+    "shows": "Each storefront query is served by the index designed for it (IXSCAN / TEXT_MATCH), examining only the matching documents; the forced collection scan reads every document for the same result.",
+    "reportSection": "5. Data model: indexing (ESR) / 9. Strengths",
+    "file": "02-catalog/query-plans.md",
+    "capturedAt": "2026-09-27T12:17:19.090Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "schema-validation",
+    "title": "Schema validation on the products collection",
+    "shows": "The $jsonSchema validator enforces only the shared base fields (kind, price, stock >= 0...). A new, kind-specific attribute is accepted without a migration, while invalid data is rejected by the database itself.",
+    "reportSection": "7. Characteristics: schema-on-write vs flexible schema",
+    "file": "02-catalog/schema-validation.md",
+    "capturedAt": "2026-09-27T12:17:19.064Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-category-filtered",
+    "title": "Storefront: filtered cases",
+    "shows": "Cases filtered by brand and price; filters are held in the URL and served by indexed queries.",
+    "reportSection": "6. Implementation",
+    "file": "02-catalog/storefront-category-filtered.png",
+    "capturedAt": "2026-09-27T12:17:25.327Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-category-phones",
+    "title": "Storefront: phones listing",
+    "shows": "Phones listing sorted by price, with brand and price facets computed by a $facet aggregation.",
+    "reportSection": "6. Implementation",
+    "file": "02-catalog/storefront-category-phones.png",
+    "capturedAt": "2026-09-27T12:17:23.533Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-home",
+    "title": "Storefront: home",
+    "shows": "Home page with category tiles (per-kind counts and starting prices from an aggregation).",
+    "reportSection": "6. Implementation",
+    "file": "02-catalog/storefront-home.png",
+    "capturedAt": "2026-09-27T12:17:21.325Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-product-accessory",
+    "title": "Storefront: accessory product page",
+    "shows": "A case uses the same page template with a completely different spec table, plus the reverse lookup: which phones it fits.",
+    "reportSection": "6. Implementation: flexible schema in the UI",
+    "file": "02-catalog/storefront-product-accessory.png",
+    "capturedAt": "2026-09-27T12:17:30.821Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-product-phone",
+    "title": "Storefront: phone product page",
+    "shows": "Phone page with storage/colour variants, phone-specific specs, and compatible accessories matched by model, connector and platform.",
+    "reportSection": "6. Implementation: flexible schema in the UI",
+    "file": "02-catalog/storefront-product-phone.png",
+    "capturedAt": "2026-09-27T12:17:28.985Z"
+  },
+  {
+    "phase": "02-catalog",
+    "name": "storefront-search",
+    "title": "Storefront: search",
+    "shows": "Full-text search ranked by weighted textScore (name > brand > description).",
+    "reportSection": "6. Implementation",
+    "file": "02-catalog/storefront-search.png",
+    "capturedAt": "2026-09-27T12:17:33.071Z"
   }
 ]

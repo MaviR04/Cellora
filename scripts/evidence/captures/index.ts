@@ -1,4 +1,5 @@
 import { foundation } from "./foundation";
+import { catalog } from "./catalog";
 
 export interface EvidenceSet {
   description: string;
@@ -8,4 +9,5 @@ export interface EvidenceSet {
 // Add one set per phase as features land.
 export const sets: Record<string, EvidenceSet> = {
   foundation,
+  catalog,
 };
