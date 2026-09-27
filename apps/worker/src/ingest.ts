@@ -74,14 +74,35 @@ export class Ingestor {
     await this.pruneConsumers();
     let lastClaim = Date.now();
     console.log(`consumer ${consumer} reading ${STREAM}`);
+    let retryOwnPending = false;
     while (!this.stopping) {
-      const res = (await this.redis.xreadgroup("GROUP", GROUP, consumer, "COUNT", BATCH, "BLOCK", BLOCK_MS, "STREAMS", STREAM, ">")) as
-        | [string, Entry[]][]
-        | null;
-      if (res) await this.process(res[0][1]);
-      if (Date.now() - lastClaim > 30_000) {
-        await this.recoverPending();
-        lastClaim = Date.now();
+      try {
+        if (retryOwnPending) {
+          // After a failure, re-read THIS consumer's delivered-but-unacknowledged entries
+          // (id "0" instead of ">") until none are left, then go back to new entries.
+          const mine = (await this.redis.xreadgroup("GROUP", GROUP, consumer, "COUNT", BATCH, "STREAMS", STREAM, "0")) as [string, Entry[]][] | null;
+          const entries = mine?.[0]?.[1] ?? [];
+          if (entries.length) {
+            await this.process(entries);
+            continue;
+          }
+          retryOwnPending = false;
+          console.log("pending entries re-processed; back to new entries");
+        }
+        const res = (await this.redis.xreadgroup("GROUP", GROUP, consumer, "COUNT", BATCH, "BLOCK", BLOCK_MS, "STREAMS", STREAM, ">")) as
+          | [string, Entry[]][]
+          | null;
+        if (res) await this.process(res[0][1]);
+        if (Date.now() - lastClaim > 30_000) {
+          await this.recoverPending();
+          lastClaim = Date.now();
+        }
+      } catch (err) {
+        // E.g. no MongoDB primary during a replica set election. The batch was not ACKed, so it
+        // stays in this consumer's pending list: wait, then retry it. The worker must not crash.
+        console.error(`ingest batch failed, retrying in 2 s: ${err instanceof Error ? err.message : err}`);
+        retryOwnPending = true;
+        await new Promise((r) => setTimeout(r, 2000));
       }
     }
   }

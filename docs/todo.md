@@ -150,17 +150,19 @@ End-to-end plan for the assignment: application **and** report, through to the v
 - [x] Staff pages excluded from storefront telemetry; worker prunes stale stream consumers; `metrics_hourly` `{_id.hour}` index
 - [x] 📸 `dashboards` set: RBAC, analyst on a secondary, HyperLogLog vs exact, endpoint timings, export, PII masking, escalation, role change, retention, rebuild, right-to-erasure end to end, 14 screenshots
 
-## Phase 9: Testing & evidence · Tue 29
+## Phase 9: Testing & evidence · Mon 28 ✅
 
-- [ ] Funnel correctness check on a small fixed dataset (script)
-- [ ] ⭐ Unit test suite: Zod event schemas, PII masking
+- [x] Funnel correctness check on a small fixed dataset: 10 hand-made sessions (out-of-order steps, duplicates, skipped step, midnight crossing), 6/6 day × device checks PASS (`npm run evidence -- testing`)
+- [x] ⭐ Unit test suite (`npm test`, node:test): Zod event schemas, PII masking, password hashing, minute keys: 11 tests
 - [x] Scripted check: stock race (`npm run evidence -- checkout`)
 - [x] Scripted check: right-to-erasure request (`npm run evidence -- dashboards` → `right-to-erasure`)
-- [ ] ⭐ Automated integration tests (checkout, identity backfill)
-- [ ] Failover test: `docker stop` the primary → election → app recovers
+- [ ] ⭐ Automated integration tests (checkout, identity backfill): covered by the scripted evidence sets instead
+- [x] Failover test: `docker kill` the primary under load → new primary in ~11 s → 0 failed requests, 0 lost events → old primary rejoins as SECONDARY
+- [x] Majority-loss test: 2 of 3 members killed → no primary (CP), DB requests fail after 20 s, telemetry still accepted, 0 events lost after recovery
+- [x] Fixes found by testing: worker no longer crashes when MongoDB is unavailable (retries its own pending batch); rollup scheduler and simulator timers can't crash on a rejected promise; `serverSelectionTimeoutMS` 10 → 20 s (elections took 10.3–11.4 s)
 - [x] Measure and record: ingest throughput (`05-telemetry`), dashboard latency raw vs rollup vs cache (`07-rollups`, `08-dashboards/dashboard-timings`), index vs collection scan (`02-catalog`)
-- [ ] 📸 Failover sequence (before / during / after)
-- [ ] Code freeze: tidy up, remove dead code, final README pass
+- [x] 📸 Failover sequence (health page during / after, timeline table)
+- [x] Code freeze: tidy up, final README pass
 
 ## Phase 10: Report · draft Tue 29, polish Wed 30 – Thu 1
 

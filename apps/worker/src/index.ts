@@ -44,12 +44,17 @@ void rollup(empty ? "full" : "incremental");
 
 let nextIncremental = Date.now() + (await intervalMin()) * 60_000;
 const scheduler = setInterval(async () => {
-  if (await redis.getdel(REBUILD_KEY)) {
-    console.log("rebuild requested by admin");
-    await rollup("full");
-  } else if (Date.now() >= nextIncremental) {
-    await rollup("incremental");
-    nextIncremental = Date.now() + (await intervalMin()) * 60_000;
+  // An async callback's rejection would be unhandled (and crash Node), so catch everything here
+  try {
+    if (await redis.getdel(REBUILD_KEY)) {
+      console.log("rebuild requested by admin");
+      await rollup("full");
+    } else if (Date.now() >= nextIncremental) {
+      await rollup("incremental");
+      nextIncremental = Date.now() + (await intervalMin()) * 60_000;
+    }
+  } catch (err) {
+    console.error("rollup scheduler tick failed:", err instanceof Error ? err.message : err);
   }
 }, 15_000);
 

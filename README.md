@@ -59,8 +59,9 @@ For a lively Live-activity page, run `npm run sim:live` in a fourth terminal.
 | `npm run sim:backfill -- --days 14 --per-day 900` | Generate historical traffic through the pipeline (worker must run); `-- --reset` removes it |
 | `npm run sim:live -- --rate 12 --minutes 10` | Live simulated shoppers using the real API (for demos) |
 | `npm run typecheck` | Type-check all workspaces |
+| `npm test` | Unit tests (event schemas, PII masking, password hashing) |
 | `npm run evidence -- --list` | List evidence capture sets |
-| `npm run evidence -- <set>` | Capture report evidence into `evidence/` |
+| `npm run evidence -- <set>` | Capture report evidence into `evidence/` (`testing` kills MongoDB containers to test failover; it restarts them) |
 
 Health check: http://localhost:4000/api/health shows the current replica set primary and Redis status.
 
@@ -74,6 +75,7 @@ packages/shared   Zod schemas and types shared by all apps (server-only helpers 
 scripts/db        Database bootstrap
 scripts/simulate  Traffic simulator (backfill + live)
 scripts/evidence  Evidence capture (command output + Playwright screenshots)
+tests/unit        Unit tests (node:test)
 infra             Docker Compose
 docs              Design documents
 evidence          Generated report evidence (index: evidence/README.md)

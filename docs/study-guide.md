@@ -789,3 +789,77 @@ SET rollups:rebuild 1   # the worker does a full rebuild within 15 s (watch its 
 
 ### One-minute summary
 > Three role-based dashboards sit on top of the pipeline. Analysts get live activity from Redis HyperLogLogs and counters, plus funnels and trends from the rollups, all on a read-only connection to a secondary, behind a Redis cache, with CSV/JSON export. Support finds a customer by email, order number or browser ID, and sees their orders, live Redis cart and every session. That includes anonymous ones from before they signed up, linked by identity stitching, with a to-the-second event timeline. Support can annotate and escalate, and contact details are masked. Admins manage roles (a change revokes sessions immediately), set retention (`collMod` on the time-series TTL), inspect index usage, trigger rollup rebuilds, monitor the replica set, Redis and the stream, and erase a customer. Erasure is an idempotent, audited clean-up across four collections and Redis (the PDPA right to erasure, built ahead of its commencement), because time-series writes can't be in a transaction and the data is deliberately denormalised.
+
+---
+
+## Phase 9: Testing, failover and resilience
+
+### Concepts
+
+**Three kinds of testing, each proving something different:**
+
+| Test | What it proves | Where |
+|---|---|---|
+| Unit tests (`npm test`, 11 tests) | Pure logic is right: event validation, PII masking, password hashing | `tests/unit/` |
+| Funnel correctness (known answers) | The most complex query gives the right numbers, including edge cases | `evidence/09-testing/funnel-correctness.md` |
+| Scripted scenarios (evidence sets) | Whole features work end to end: stock race, erasure, failover | `04-checkout`, `08-dashboards`, `09-testing` |
+
+**Funnel correctness: how do you test an aggregation?**
+- Make a tiny dataset where you **know the answer by hand**. Here that's 10 sessions, each a story: steps out of order, duplicates, a skipped step, an order with no view, a session crossing local midnight, non-funnel events.
+- Run the *same* `funnelPipeline()` the worker uses over it, and compare every day × device cell: 6/6 PASS.
+- **Bonus finding for the report:** counting sessions per event type while ignoring order gives [6,4,3,3] → "50% conversion". The ordered funnel gives [6,4,2,1] → **17%**. Getting the query right matters.
+
+**Failover test 1: the primary crashes (`docker kill`, not a clean stop).**
+
+What happens inside MongoDB:
+1. The secondaries stop receiving heartbeats from the primary (every 2 s).
+2. After `electionTimeoutMillis` (10 s) without contact, a secondary calls an election.
+3. The two survivors are still a **majority of 3**, so one wins and becomes primary.
+4. The driver in our API notices (server discovery) and sends writes to the new primary. **No code or config change.**
+
+Measured: **new primary after 10.3–11.4 s**. Reads and checkouts that arrived during the election **waited** (up to ~10 s) and then succeeded: **0 failed requests**. Telemetry was never even slowed (max 36 ms), because `POST /api/events` only touches Redis. All accepted events reached MongoDB. The old node, restarted, rejoined as a SECONDARY in about 1 s and caught up from the oplog.
+
+**A config change backed by evidence.** The driver's `serverSelectionTimeoutMS` was 10 s, and elections took *longer* than that (11.4 s once). Requests would have failed with 500s. Raised to **20 s**: long enough to ride out an election, short enough not to hide a real outage.
+
+**Failover test 2: the majority is lost (2 of 3 killed).** This is the **CAP theorem** made visible:
+- The survivor can't see a majority, so it **refuses to become primary** (`hello` → `secondary: true, primary: null`). If it accepted writes, and the other two were alive but cut off (a network partition), you'd get two primaries and conflicting data: *split brain*.
+- MongoDB (with majority writes) chooses **Consistency over Availability** during a partition: **CP**.
+- What the app did: catalogue reads and checkouts **failed with 500 after 20 s** (honest unavailability). **Telemetry kept being accepted** (Redis), the worker's inserts failed and it **retried its pending batch** until a primary came back, and **0 of 1,210 events were lost**.
+- **The design point:** because ingestion is decoupled by the Redis Stream, the *write-heavy* part of the system stays available even when the database isn't. That's the reason the stream exists, now proven.
+
+**Bugs the tests found (good to mention: testing that finds nothing proves little):**
+1. **The worker crashed** if MongoDB was unavailable: one failed `insertMany` escaped the loop and killed the process. Now it logs, waits 2 s and **re-reads its own pending entries** (`XREADGROUP … 0` instead of `>`), because un-ACKed messages stay in the consumer's pending list. That's the at-least-once guarantee doing its job.
+2. **`async` callbacks in `setInterval`** (rollup scheduler, simulator catalogue refresh): a rejected promise there is *unhandled* and Node kills the process. Wrapped in try/catch.
+3. The server-selection timeout above.
+
+### Read these files
+1. [scripts/evidence/captures/testing.ts](../scripts/evidence/captures/testing.ts): the funnel dataset (read the stories and the expected table), and the `Load` class.
+2. [apps/worker/src/ingest.ts](../apps/worker/src/ingest.ts): `run()`, the try/catch and `retryOwnPending`.
+3. [tests/unit/](../tests/unit/): two short files.
+4. [packages/shared/src/server/connections.ts](../packages/shared/src/server/connections.ts): the timeout and why.
+
+### Try it yourself
+```bash
+npm test
+npm run evidence -- testing        # ~3 min; kills and restarts MongoDB containers
+```
+Or by hand, with the admin **System health** page open:
+```bash
+docker kill mongo1                 # if mongo1 is primary; watch the page for ~15 s
+docker start mongo1                # it comes back as SECONDARY
+```
+
+### Viva questions
+- **"What happens if the primary dies?"** Survivors hold an election (~10 s after heartbeats stop), a new primary is chosen by majority, and the driver follows it automatically. Measured: 0 failed requests, 10.3–11.4 s pause.
+- **"And if two nodes die?"** No majority → no primary → no writes (CP). Reads with the default read preference fail too. Telemetry is still accepted thanks to the Redis stream and lands later. 0 lost.
+- **"Why three nodes, not two?"** With two, losing one leaves 1 of 2, which is not a majority, so there's no primary. Three tolerate one failure. (Five tolerate two.)
+- **"Where is your system CP and where AP?"** MongoDB writes (orders, stock) are CP. Telemetry ingestion behaves AP (always accepts, eventually consistent). Dashboards are eventually consistent (rollups, cache, secondary reads).
+- **"How do you know your funnel query is right?"** The hand-made dataset with known answers, plus the Phase 7 check that rollups equal the raw computation.
+- **"What did testing find?"** The worker crash on DB errors, unhandled rejections in timers, and a timeout shorter than an election.
+- **"What's still a single point of failure?"** Redis (one instance; AOF limits data loss to ~1 s). In production: Redis Sentinel or a managed Redis with replicas.
+
+### Evidence
+`evidence/09-testing/`: funnel-correctness, unit-tests, failover-under-load (with per-second timeline), majority-loss, failover-health-during/after screenshots.
+
+### One-minute summary
+> I tested at three levels: unit tests for pure logic, a hand-made dataset with known answers for the funnel aggregation, and end-to-end scenarios. The key scenario kills MongoDB nodes under continuous load. When the primary crashes, the other two elect a new one in about 11 seconds and the application follows it with no failed requests. When two of three die, MongoDB refuses to elect a primary rather than risk inconsistent data (CP in CAP terms). Database requests fail, but telemetry is still accepted into the Redis stream, and not one event was lost once the nodes returned. Testing found real bugs: the worker crashing on database errors, unhandled promise rejections in timers, and a driver timeout shorter than an election. All three are fixed.

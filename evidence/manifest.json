@@ -628,5 +628,59 @@
     "reportSection": "6. Implementation: session timeline (UC12)",
     "file": "08-dashboards/support-session.png",
     "capturedAt": "2026-09-27T20:06:53.950Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "failover-health-after",
+    "title": "Health dashboard after the old primary rejoined",
+    "shows": "mongo1 is back as a SECONDARY and has caught up; host.docker.internal:27018 stays primary (no fail-back needed).",
+    "reportSection": "8. Strengths: high availability (replica set failover)",
+    "file": "09-testing/failover-health-after.png",
+    "capturedAt": "2026-09-27T20:13:37.366Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "failover-health-during",
+    "title": "Health dashboard during the failover",
+    "shows": "The primary container (mongo1) has been killed: the admin health page shows it unreachable and a new primary (host.docker.internal:27018) elected by the two survivors.",
+    "reportSection": "8. Strengths: high availability (replica set failover)",
+    "file": "09-testing/failover-health-during.png",
+    "capturedAt": "2026-09-27T20:13:31.437Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "failover-under-load",
+    "title": "Replica set failover under load: primary killed, new primary elected, old one rejoins",
+    "shows": "While reads, telemetry and checkouts run continuously, the primary's container is killed (a crash, not a clean shutdown). The two remaining members still form a majority and elect a new primary; the MongoDB driver discovers it by itself. Requests in flight during the election wait (up to the 20 s server-selection timeout) and then complete: no request fails. Telemetry is never slowed, because the API only appends to the Redis stream. The old node rejoins as a secondary.",
+    "reportSection": "8. Strengths: high availability; 7. CAP (availability with a majority); 10. Evaluation: testing",
+    "file": "09-testing/failover-under-load.md",
+    "capturedAt": "2026-09-27T20:13:37.387Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "funnel-correctness",
+    "title": "Funnel pipeline correctness on a hand-made dataset",
+    "shows": "Ten sessions with known answers, including the awkward cases (steps out of order, duplicates, a skipped step, an order without a view, a session crossing local midnight, non-funnel events), run through the same funnelPipeline() the worker uses. Every day and device matches the hand-worked result. A naive count per event type would report 50% conversion instead of 17%.",
+    "reportSection": "10. Evaluation: testing",
+    "file": "09-testing/funnel-correctness.md",
+    "capturedAt": "2026-09-27T20:13:05.089Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "majority-loss",
+    "title": "Losing the majority: MongoDB stops accepting writes rather than risk inconsistency",
+    "shows": "Two of the three members are killed. The survivor can't see a majority, so it refuses to become primary (CP behaviour: no split-brain, no conflicting writes). Database-backed requests (catalogue reads, add-to-cart + checkout) fail with HTTP 500 once the 20 s server-selection timeout runs out. Telemetry keeps being accepted, because it is only appended to the Redis stream; the worker's inserts fail, the batch stays pending, and the worker retries it until a primary is back. Once the members return, every accepted event reaches MongoDB.",
+    "reportSection": "7. Characteristics: CAP / consistency; 9. Strengths: decoupled ingestion; 10. Limitations: availability without a majority",
+    "file": "09-testing/majority-loss.md",
+    "capturedAt": "2026-09-27T20:14:41.314Z"
+  },
+  {
+    "phase": "09-testing",
+    "name": "unit-tests",
+    "title": "Unit tests (node:test)",
+    "shows": "Pure-logic tests with no database: event schema validation (valid events accepted, spoofed server events and bad payloads rejected), PII masking, password hashing, live-counter minute keys.",
+    "reportSection": "10. Evaluation: testing",
+    "file": "09-testing/unit-tests.md",
+    "capturedAt": "2026-09-27T20:13:06.175Z"
   }
 ]

@@ -120,7 +120,13 @@ async function runSession(plan: SessionPlan) {
 console.log(`live traffic: ${rate} sessions/min, think-time x${speed}. Ctrl+C to stop.`);
 const endAt = Number(args.minutes) > 0 ? Date.now() + Number(args.minutes) * 60_000 : Infinity;
 setInterval(async () => {
-  catalog = buildCatalog(await loadCatalog(db)); // pick up stock changes
+  // Pick up stock changes. If MongoDB is unavailable (e.g. during a failover test), keep the old
+  // catalogue: a rejected promise in a timer callback would otherwise crash the process.
+  try {
+    catalog = buildCatalog(await loadCatalog(db));
+  } catch (err) {
+    console.warn("catalogue refresh failed, keeping the previous one:", err instanceof Error ? err.message : err);
+  }
 }, 60_000).unref();
 const report = setInterval(() => {
   console.log(`[${new Date().toLocaleTimeString()}] sessions started ${stats.started}, active ${stats.active}, events ${stats.events}, orders ${stats.orders}, failed checkouts ${stats.failed}, errors ${stats.errors}`);
